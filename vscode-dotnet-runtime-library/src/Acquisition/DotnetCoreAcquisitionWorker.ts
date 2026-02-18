@@ -121,6 +121,18 @@ export class DotnetCoreAcquisitionWorker implements IDotnetCoreAcquisitionWorker
         return this.acquire(context, 'sdk', installerResolver);
     }
 
+    public async acquireGlobalRuntime(context: IAcquisitionWorkerContext, installerResolver: GlobalInstallerResolver): Promise<IDotnetAcquireResult>
+    {
+        this.globalResolver = installerResolver;
+        return this.acquire(context, 'runtime', installerResolver);
+    }
+
+    public async acquireGlobalASPNET(context: IAcquisitionWorkerContext, installerResolver: GlobalInstallerResolver): Promise<IDotnetAcquireResult>
+    {
+        this.globalResolver = installerResolver;
+        return this.acquire(context, 'aspnetcore', installerResolver);
+    }
+
     public async acquireLocalASPNET(context: IAcquisitionWorkerContext, invoker: IAcquisitionInvoker)
     {
         return this.acquire(context, 'aspnetcore', undefined, invoker);
@@ -432,8 +444,9 @@ export class DotnetCoreAcquisitionWorker implements IDotnetCoreAcquisitionWorker
         const installedVersions = await InstallTrackerSingleton.getInstance(context.eventStream, context.extensionState).getExistingInstalls(context.installDirectoryProvider);
 
         const installer: IGlobalInstaller = os.platform() === 'linux' ?
-            new LinuxGlobalInstaller(context, this.utilityContext, installingVersion) :
-            new WinMacGlobalInstaller(context, this.utilityContext, installingVersion, await globalInstallerResolver.getInstallerUrl(), await globalInstallerResolver.getInstallerHash());
+            new LinuxGlobalInstaller(context, this.utilityContext, installingVersion, install.installMode) :
+            new WinMacGlobalInstaller(context, this.utilityContext, installingVersion, await globalInstallerResolver.getInstallerUrl(), await globalInstallerResolver.getInstallerHash(),
+                null, null, install.installMode);
 
         // See if we should return a fake path instead of running the install
         if (process.env.VSCODE_DOTNET_GLOBAL_INSTALL_FAKE_PATH && process.env.VSCODE_DOTNET_GLOBAL_INSTALL_FAKE_PATH === 'true')
@@ -444,7 +457,7 @@ export class DotnetCoreAcquisitionWorker implements IDotnetCoreAcquisitionWorker
             return path.join('fake-sdk', getDotnetExecutable());
         }
 
-        let dotnetExePath: string = await installer.getExpectedGlobalSDKPath(installingVersion,
+        let dotnetExePath: string = await installer.getExpectedGlobalDotnetPath(installingVersion,
             context.acquisitionContext.architecture ?? this.getDefaultInternalArchitecture(context.acquisitionContext.architecture), false);
         const existingInstall = await this.getValidExistingInstallPath(context, installedVersions, install, dotnetExePath);
         if (existingInstall)
@@ -455,7 +468,7 @@ export class DotnetCoreAcquisitionWorker implements IDotnetCoreAcquisitionWorker
         context.eventStream.post(new DotnetAcquisitionStarted(install, installingVersion, context.acquisitionContext.requestingExtensionId));
 
         context.eventStream.post(new DotnetBeginGlobalInstallerExecution(`Beginning to run installer for ${JSON.stringify(install)} in ${os.platform()}.`))
-        const installerResult = await installer.installSDK(install);
+        const installerResult = await installer.installGlobal(install);
         context.eventStream.post(new DotnetCompletedGlobalInstallerExecution(`Completed installer for ${JSON.stringify(install)} in ${os.platform()}.`))
 
         if (installerResult !== '0')
@@ -476,7 +489,7 @@ ${interpretedMessage}`;
         TelemetryUtilities.setDotnetSDKTelemetryToMatch(context.isExtensionTelemetryInitiallyEnabled, this.extensionContext, context, this.utilityContext).catch(() => {});
 
         // in case the path does not exist, try resetting the path using an automatic path search setting
-        dotnetExePath = await installer.getExpectedGlobalSDKPath(installingVersion,
+        dotnetExePath = await installer.getExpectedGlobalDotnetPath(installingVersion,
             context.acquisitionContext.architecture ?? this.getDefaultInternalArchitecture(context.acquisitionContext.architecture));
 
         LocalMemoryCacheSingleton.getInstance().invalidateEntriesContaining('dotnet', context);
