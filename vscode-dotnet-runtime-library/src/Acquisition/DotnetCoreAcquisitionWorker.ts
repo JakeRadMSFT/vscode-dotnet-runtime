@@ -347,7 +347,7 @@ export class DotnetCoreAcquisitionWorker implements IDotnetCoreAcquisitionWorker
 
             if (context.acquisitionContext.installType === 'global')
             {
-                if (!(await this.sdkIsFound(context, context.acquisitionContext.version)))
+                if (!(await this.dotnetInstallIsFound(context, context.acquisitionContext.version)))
                 {
                     context.eventStream.post(new DotnetAcquisitionThoughtInstalledButNot(`Global Install ${JSON.stringify(install)} at ${dotnetPath} was tracked under installed but it wasn't found. Maybe it got removed externally.`));
 
@@ -368,11 +368,32 @@ export class DotnetCoreAcquisitionWorker implements IDotnetCoreAcquisitionWorker
         return null;
     }
 
-    private async sdkIsFound(context: IAcquisitionWorkerContext, version: string): Promise<boolean>
+    private getInstalledVersionsCommand(context: IAcquisitionWorkerContext)
+    {
+        const listArgument = context.acquisitionContext.mode === 'sdk' ? '--list-sdks' : '--list-runtimes';
+        return CommandExecutor.makeCommand('dotnet', [listArgument, '--arch']);
+    }
+
+    private isInstallListed(output: string, mode: DotnetInstallMode, version: string, allowSdkMajorMinorMatch = false): boolean
+    {
+        const expectedFramework = mode === 'runtime' ? 'Microsoft.NETCore.App' : 'Microsoft.AspNetCore.App';
+        return output.split(/\r?\n/).some(line =>
+        {
+            const tokens = line.trim().split(/\s+/);
+            if (mode === 'sdk')
+            {
+                return tokens.length >= 2 && (tokens[0] === version || (allowSdkMajorMinorMatch && tokens[0].startsWith(`${version}.`)));
+            }
+
+            return tokens.length >= 3 && tokens[0] === expectedFramework && tokens[1] === version;
+        });
+    }
+
+    private async dotnetInstallIsFound(context: IAcquisitionWorkerContext, version: string): Promise<boolean>
     {
         const executor = new CommandExecutor(context, this.utilityContext);
-        const listSDKsCommand = CommandExecutor.makeCommand('dotnet', ['--list-sdks', '--arch']);
-        const result = await executor.execute(listSDKsCommand, { dotnetInstallToolCacheTtlMs: DOTNET_INFORMATION_CACHE_DURATION_MS }, false);
+        const listVersionsCommand = this.getInstalledVersionsCommand(context);
+        const result = await executor.execute(listVersionsCommand, { dotnetInstallToolCacheTtlMs: DOTNET_INFORMATION_CACHE_DURATION_MS }, false);
 
         if (result.status !== '0')
         {
@@ -382,10 +403,10 @@ export class DotnetCoreAcquisitionWorker implements IDotnetCoreAcquisitionWorker
         if (os.platform() === 'linux' && context?.acquisitionContext?.mode === 'sdk' && context.acquisitionContext?.installType === 'global')
         {
             // There is a bug where the version marked in the folder / install is not latest if ubuntu is out of date for global installs
-            return result.stdout.includes(versionUtils.getMajorMinor(version, context.eventStream, context));
+            return this.isInstallListed(result.stdout, 'sdk', versionUtils.getMajorMinor(version, context.eventStream, context), true);
         }
 
-        return result.stdout.includes(version);
+        return this.isInstallListed(result.stdout, context.acquisitionContext.mode ?? 'runtime', version);
     }
 
     private getDefaultInternalArchitecture(existingArch: string | null | undefined)
@@ -452,8 +473,6 @@ export class DotnetCoreAcquisitionWorker implements IDotnetCoreAcquisitionWorker
         if (process.env.VSCODE_DOTNET_GLOBAL_INSTALL_FAKE_PATH && process.env.VSCODE_DOTNET_GLOBAL_INSTALL_FAKE_PATH === 'true')
         {
             context.eventStream.post(new DotnetFakeSDKEnvironmentVariableTriggered(`VSCODE_DOTNET_GLOBAL_INSTALL_FAKE_PATH has been set.`));
-            // Return a realistic executable file path (directory + host executable) so callers that derive the
-            // install directory via path.dirname(...) (e.g. setPathEnvVar) behave as they would for a real install.
             return path.join('fake-sdk', getDotnetExecutable());
         }
 

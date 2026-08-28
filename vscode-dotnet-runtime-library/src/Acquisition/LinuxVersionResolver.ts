@@ -248,11 +248,16 @@ If you experience issues, please reach out on https://github.com/dotnet/vscode-d
      * A string is returned in case we want to make this return more info about the update.
      * @remarks it is expected you are holding the global modifier lock when calling this function.
      */
-    private async UpdateOrRejectIfVersionRequestDoesNotRequireInstall(fullySpecifiedDotnetVersion: string, existingInstall: string | null): Promise<string>
+    private async UpdateOrRejectIfVersionRequestDoesNotRequireInstall(fullySpecifiedDotnetVersion: string, existingInstall: string | null, mode: DotnetInstallMode): Promise<string>
     {
         await this.Initialize();
 
         this.workerContext.eventStream.post(new DotnetInstallLinuxChecks(`Checking to see if we should install, update, or cancel...`));
+        if (mode !== 'sdk')
+        {
+            return '0';
+        }
+
         if (existingInstall)
         {
             const existingGlobalInstallSDKVersion = await this.distroSDKProvider!.getInstalledGlobalDotnetVersionIfExists();
@@ -324,7 +329,7 @@ If you experience issues, please reach out on https://github.com/dotnet/vscode-d
         await this.VerifyNoCustomInstallExists(supportStatus, fullySpecifiedDotnetVersion, existingInstall);
 
         // Check if we need to install or not, if we can install (if the version conflicts with an existing one), or if we can just update the existing install.
-        const updateOrRejectState = await this.UpdateOrRejectIfVersionRequestDoesNotRequireInstall(fullySpecifiedDotnetVersion, existingInstall);
+        const updateOrRejectState = await this.UpdateOrRejectIfVersionRequestDoesNotRequireInstall(fullySpecifiedDotnetVersion, existingInstall, mode);
         if (updateOrRejectState === '0')
         {
             return await this.distroSDKProvider!.installDotnet(fullySpecifiedDotnetVersion, mode) ? '0' : '1';

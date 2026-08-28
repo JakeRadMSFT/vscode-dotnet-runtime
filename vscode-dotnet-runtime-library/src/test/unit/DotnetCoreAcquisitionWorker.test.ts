@@ -259,6 +259,42 @@ suite('DotnetCoreAcquisitionWorker Unit Tests', function ()
         await acquireWithVersion('1.0', 'aspnetcore');
     }).timeout(expectedTimeoutTime);
 
+    test('Global runtime detection uses the runtime listing command', () =>
+    {
+        const eventStream = new MockEventStream();
+        const workerContext = getMockAcquisitionContext('runtime', '10.0.1', expectedTimeoutTime, eventStream, new MockExtensionContext());
+        const acquisitionWorker = getMockAcquisitionWorker(workerContext);
+        const command = (acquisitionWorker as any).getInstalledVersionsCommand(workerContext);
+
+        assert.deepEqual(command.commandParts, ['--list-runtimes', '--arch']);
+    });
+
+    test('Global install detection requires the exact product and version', () =>
+    {
+        const workerContext = getMockAcquisitionContext('runtime', '10.0.1');
+        const acquisitionWorker = getMockAcquisitionWorker(workerContext);
+        const output = [
+            'Microsoft.NETCore.App 10.0.1 [C:\\Program Files\\dotnet\\shared\\Microsoft.NETCore.App]',
+            'Microsoft.AspNetCore.App 10.0.10 [C:\\Program Files\\dotnet\\shared\\Microsoft.AspNetCore.App]',
+        ].join('\r\n');
+
+        assert.isTrue((acquisitionWorker as any).isInstallListed(output, 'runtime', '10.0.1'));
+        assert.isFalse((acquisitionWorker as any).isInstallListed(output, 'aspnetcore', '10.0.1'));
+        assert.isTrue((acquisitionWorker as any).isInstallListed(output, 'aspnetcore', '10.0.10'));
+        assert.isFalse((acquisitionWorker as any).isInstallListed(output, 'aspnetcore', '10.0.0'));
+    });
+
+    test('Global SDK detection requires an exact version unless Linux major-minor matching is requested', () =>
+    {
+        const workerContext = getMockAcquisitionContext('sdk', '10.0.100');
+        const acquisitionWorker = getMockAcquisitionWorker(workerContext);
+        const output = '10.0.100 [C:\\Program Files\\dotnet\\sdk]';
+
+        assert.isTrue((acquisitionWorker as any).isInstallListed(output, 'sdk', '10.0.100'));
+        assert.isFalse((acquisitionWorker as any).isInstallListed(output, 'sdk', '10.0.10'));
+        assert.isTrue((acquisitionWorker as any).isInstallListed(output, 'sdk', '10.0', true));
+    });
+
     test('Acquire SDK Status', async () =>
     {
         await acquireStatus('5.0', 'sdk', 'local');

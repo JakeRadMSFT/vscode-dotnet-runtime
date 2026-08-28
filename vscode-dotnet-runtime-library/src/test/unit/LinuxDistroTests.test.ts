@@ -75,6 +75,9 @@ suite('Linux Distro Logic Unit Tests', function ()
         {
             const status = await provider.getDotnetVersionSupportStatus(mockVersion, installType);
             assert.equal(status, DotnetDistroSupportStatus.Distro);
+
+            const runtimeStatus = await provider.getDotnetVersionSupportStatus('8.0.9', 'runtime');
+            assert.equal(runtimeStatus, DotnetDistroSupportStatus.Distro);
         }
     }).timeout(standardTimeoutTime);
 

@@ -419,9 +419,8 @@ export function activate(vsCodeContext: vscode.ExtensionContext, extensionContex
                 ? await worker.acquireGlobalASPNET(workerContext, globalInstallerResolver)
                 : await worker.acquireGlobalRuntime(workerContext, globalInstallerResolver);
 
-            new CommandExecutor(workerContext, utilContext).setPathEnvVar(dotnetPath.dotnetPath, moreInfoUrl, displayWorker, vsCodeExtensionContext, true);
             return dotnetPath;
-        }, getIssueContext(existingPathConfigWorker)(commandContext.errorConfiguration, commandKeys.acquireGlobalRuntime), commandContext.requestingExtensionId, workerContext);
+        }, getIssueContext(existingPathConfigWorker)(commandContext.errorConfiguration, commandKeys.acquireGlobalRuntime), commandContext.requestingExtensionId, workerContext, commandContext.rethrowError);
 
         const installationId = getInstallIdCustomArchitecture(commandContext.version, commandContext.architecture, mode, 'global');
         const install = {

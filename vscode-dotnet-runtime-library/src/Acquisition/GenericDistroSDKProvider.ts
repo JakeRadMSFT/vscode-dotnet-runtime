@@ -163,10 +163,10 @@ export class GenericDistroSDKProvider extends IDistroDotnetSDKProvider
 
     public async getDotnetVersionSupportStatus(fullySpecifiedVersion: string, installType: DotnetInstallMode): Promise<DotnetDistroSupportStatus>
     {
-        if (versionUtils.getFeatureBandFromVersion(fullySpecifiedVersion, this.context.eventStream, this.context) !== '1' ||
+        if ((installType === 'sdk' && versionUtils.getFeatureBandFromVersion(fullySpecifiedVersion, this.context.eventStream, this.context) !== '1') ||
             Number(versionUtils.getMajor(fullySpecifiedVersion, this.context.eventStream, this.context)) < 6)
         {
-            this.context.eventStream.post(new DistroSupport(`Distro: Dotnet Version ${fullySpecifiedVersion} is not supported by this extension. It has a non 1 level band or < 6.0.`));
+            this.context.eventStream.post(new DistroSupport(`Distro: Dotnet ${installType} version ${fullySpecifiedVersion} is not supported by this extension.`));
             return Promise.resolve(DotnetDistroSupportStatus.Unsupported);
         }
 

@@ -121,6 +121,29 @@ suite('Linux Version Resolver Tests', function ()
         }
     });
 
+    test('It installs runtime products without applying SDK update logic', async () =>
+    {
+        if (shouldRun)
+        {
+            mockDistroProvider.globalPathReturnValue = `/`;
+            mockDistroProvider.distroFeedReturnValue = `/`;
+            mockDistroProvider.globalVersionReturnValue = mockVersion;
+            mockDistroProvider.packageExistsReturnValue = true;
+
+            for (const mode of ['runtime', 'aspnetcore'] as const)
+            {
+                const okResult = await resolver.ValidateAndInstall('7.0.9', mode);
+                assert.equal(okResult, '0');
+                assert.equal(mockExecutor.attemptedCommand, 'install dotnet');
+            }
+
+            mockDistroProvider.globalPathReturnValue = null;
+            mockDistroProvider.distroFeedReturnValue = ``;
+            mockDistroProvider.packageExistsReturnValue = false;
+            mockDistroProvider.globalVersionReturnValue = null;
+        }
+    });
+
     test('It rejects downloading a lower patch of a major minor', async () =>
     {
         if (shouldRun)
