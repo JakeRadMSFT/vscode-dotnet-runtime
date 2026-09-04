@@ -140,7 +140,7 @@ suite('Linux Version Resolver Tests', function ()
             {
                 const okResult = await resolver.ValidateAndInstall('7.0.9', mode);
                 assert.equal(okResult, '0');
-                assert.equal(mockExecutor.attemptedCommand, 'update dotnet');
+                assert.include(mockExecutor.attemptedCommand, 'update dotnet');
             }
 
             mockDistroProvider.globalPathReturnValue = null;

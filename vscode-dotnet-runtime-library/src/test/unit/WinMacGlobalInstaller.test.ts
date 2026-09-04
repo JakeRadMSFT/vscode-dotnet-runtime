@@ -154,6 +154,8 @@ suite('Windows & Mac Global Installer Tests', function ()
         const runtimeInstaller = new WinMacGlobalInstaller(getMockAcquisitionContext('runtime', '10.0.3'), getMockUtilityContext(), '10.0.3', mockUrl, mockHash,
             mockExecutor, reader, 'runtime');
         const originalGetDotnetInstalls = DotnetResolver.prototype.getDotnetInstalls;
+        const originalGetExpectedGlobalDotnetPath = runtimeInstaller.getExpectedGlobalDotnetPath;
+        runtimeInstaller.getExpectedGlobalDotnetPath = async () => 'dotnet';
         DotnetResolver.prototype.getDotnetInstalls = async () => [
             { mode: 'runtime', version: '10.0.2', directory: 'runtime', architecture: 'x64' },
             { mode: 'aspnetcore', version: '10.0.11', directory: 'aspnetcore', architecture: 'x64' },
@@ -166,6 +168,7 @@ suite('Windows & Mac Global Installer Tests', function ()
         finally
         {
             DotnetResolver.prototype.getDotnetInstalls = originalGetDotnetInstalls;
+            runtimeInstaller.getExpectedGlobalDotnetPath = originalGetExpectedGlobalDotnetPath;
         }
     });
 
