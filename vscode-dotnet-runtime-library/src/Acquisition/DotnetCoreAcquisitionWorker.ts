@@ -349,7 +349,7 @@ export class DotnetCoreAcquisitionWorker implements IDotnetCoreAcquisitionWorker
 
             if (context.acquisitionContext.installType === 'global')
             {
-                if (!(await this.dotnetInstallIsFound(context, context.acquisitionContext.version)))
+                if (!(await this.dotnetInstallIsFound(context, context.acquisitionContext.version, dotnetPath)))
                 {
                     context.eventStream.post(new DotnetAcquisitionThoughtInstalledButNot(`Global Install ${JSON.stringify(install)} at ${dotnetPath} was tracked under installed but it wasn't found. Maybe it got removed externally.`));
 
@@ -379,11 +379,11 @@ export class DotnetCoreAcquisitionWorker implements IDotnetCoreAcquisitionWorker
         });
     }
 
-    private async dotnetInstallIsFound(context: IAcquisitionWorkerContext, version: string): Promise<boolean>
+    private async dotnetInstallIsFound(context: IAcquisitionWorkerContext, version: string, dotnetPath: string): Promise<boolean>
     {
         const mode = context.acquisitionContext.mode ?? 'runtime';
         const installedDotnets = await new DotnetResolver(context, this.utilityContext).getDotnetInstalls(
-            this.dotnetExecutable, mode, context.acquisitionContext.architecture);
+            dotnetPath, mode, context.acquisitionContext.architecture);
 
         if (os.platform() === 'linux' && mode === 'sdk' && context.acquisitionContext.installType === 'global')
         {

@@ -15,6 +15,7 @@ import { IAcquisitionInvoker } from '../../Acquisition/IAcquisitionInvoker';
 import { IAcquisitionWorkerContext } from '../../Acquisition/IAcquisitionWorkerContext';
 import { InstallRecord } from '../../Acquisition/InstallRecord';
 import { LinuxGlobalInstaller } from '../../Acquisition/LinuxGlobalInstaller';
+import { DotnetResolver } from '../../Acquisition/DotnetResolver';
 import { WinMacGlobalInstaller } from '../../Acquisition/WinMacGlobalInstaller';
 import { IEventStream } from '../../EventStream/EventStream';
 import
@@ -283,6 +284,32 @@ suite('DotnetCoreAcquisitionWorker Unit Tests', function ()
         assert.isTrue((acquisitionWorker as any).isInstallListed(installs, 'sdk', '10.0.100'));
         assert.isFalse((acquisitionWorker as any).isInstallListed(installs, 'sdk', '10.0.10'));
         assert.isTrue((acquisitionWorker as any).isInstallListed(installs, 'sdk', '10.0', true));
+    });
+
+    test('Global install detection queries the tracked dotnet host', async () =>
+    {
+        const workerContext = getMockAcquisitionContext('runtime', '10.0.1');
+        workerContext.acquisitionContext.installType = 'global';
+        const acquisitionWorker = getMockAcquisitionWorker(workerContext);
+        const trackedDotnetPath = path.join('global-dotnet', getDotnetExecutable());
+        const originalGetDotnetInstalls = DotnetResolver.prototype.getDotnetInstalls;
+        let queriedDotnetPath: string | undefined;
+
+        DotnetResolver.prototype.getDotnetInstalls = async (dotnetPath) =>
+        {
+            queriedDotnetPath = dotnetPath;
+            return [{ mode: 'runtime', version: '10.0.1', directory: 'runtime', architecture: 'x64' }];
+        };
+
+        try
+        {
+            assert.isTrue(await (acquisitionWorker as any).dotnetInstallIsFound(workerContext, '10.0.1', trackedDotnetPath));
+            assert.equal(queriedDotnetPath, trackedDotnetPath);
+        }
+        finally
+        {
+            DotnetResolver.prototype.getDotnetInstalls = originalGetDotnetInstalls;
+        }
     });
 
     test('Acquire SDK Status', async () =>
