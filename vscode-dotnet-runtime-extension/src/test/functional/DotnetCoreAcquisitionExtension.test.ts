@@ -582,23 +582,50 @@ suite('DotnetCoreAcquisitionExtension End to End', function ()
         await runGlobalSdkInstallTest('10.0.1xx');
     }).timeout(standardTimeoutTime * 1000);
 
-    for (const sampleCommand of ['sample.dotnet.acquireGlobalRuntime', 'sample.dotnet.acquireGlobalASPNETRuntime'])
+    async function runGlobalRuntimeInstallTest(mode: 'runtime' | 'aspnetcore')
     {
-        test(`${sampleCommand} invokes global runtime acquisition`, async () =>
+        const version = '10.0.1';
+        const context: IDotnetAcquireContext = { version, requestingExtensionId, installType: 'global', mode };
+        const originalPath = process.env.PATH;
+        let result: IDotnetAcquireResult | undefined;
+        let error: unknown;
+        let pathAfterInstall: string | undefined;
+
+        process.env.VSCODE_DOTNET_GLOBAL_INSTALL_FAKE_PATH = 'true';
+        try
         {
-            process.env.VSCODE_DOTNET_GLOBAL_INSTALL_FAKE_PATH = 'true';
-            try
-            {
-                const result = await vscode.commands.executeCommand<IDotnetAcquireResult>(sampleCommand, '10.0.1');
-                assert.exists(result, `${sampleCommand} returned a result`);
-                assert.equal(result!.dotnetPath, path.join('fake-sdk', getDotnetExecutable()));
-            }
-            finally
-            {
-                process.env.VSCODE_DOTNET_GLOBAL_INSTALL_FAKE_PATH = undefined;
-            }
-        }).timeout(standardTimeoutTime);
+            result = await vscode.commands.executeCommand<IDotnetAcquireResult>('dotnet.acquireGlobalRuntime', context);
+        }
+        catch (err)
+        {
+            error = err;
+        }
+        finally
+        {
+            pathAfterInstall = process.env.PATH;
+            process.env.VSCODE_DOTNET_GLOBAL_INSTALL_FAKE_PATH = undefined;
+            process.env.PATH = originalPath;
+        }
+
+        if (error)
+        {
+            throw new Error(`The global ${mode} acquisition failed for version ${version}. Error: ${error}`);
+        }
+
+        assert.exists(result, `The global ${mode} acquisition command returned a result`);
+        assert.equal(result!.dotnetPath, path.join('fake-sdk', getDotnetExecutable()));
+        assert.equal(pathAfterInstall, originalPath, `Global ${mode} acquisition should not update PATH`);
     }
+
+    test('Install Runtime Globally E2E', async () =>
+    {
+        await runGlobalRuntimeInstallTest('runtime');
+    }).timeout(standardTimeoutTime);
+
+    test('Install ASP.NET Core Runtime Globally E2E', async () =>
+    {
+        await runGlobalRuntimeInstallTest('aspnetcore');
+    }).timeout(standardTimeoutTime);
 
     test('Telemetry Sent During Install and Uninstall', async () =>
     {
