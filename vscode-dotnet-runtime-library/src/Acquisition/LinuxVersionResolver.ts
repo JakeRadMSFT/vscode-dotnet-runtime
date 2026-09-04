@@ -338,7 +338,7 @@ If you experience issues, please reach out on https://github.com/dotnet/vscode-d
         const updateOrRejectState = await this.UpdateOrRejectIfVersionRequestDoesNotRequireInstall(fullySpecifiedDotnetVersion, existingInstall, mode);
         if (updateOrRejectState === '0')
         {
-            return await this.distroSDKProvider!.installDotnet(fullySpecifiedDotnetVersion, mode) ? '0' : '1';
+            return (await this.distroSDKProvider!.installDotnet(fullySpecifiedDotnetVersion, mode)) === '0' ? '0' : '1';
         }
         else if (updateOrRejectState === String(this.okUpdateExitCode) || updateOrRejectState === String(this.okAlreadyExistsExitCode))
         {

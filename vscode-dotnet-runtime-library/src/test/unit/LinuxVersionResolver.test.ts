@@ -14,8 +14,13 @@ import * as util from './TestUtility';
 import { getMockAcquisitionContext, getMockUtilityContext } from './TestUtility';
 const assert = chai.assert;
 
-
-
+class MockLinuxVersionResolver extends LinuxVersionResolver
+{
+    public override async getRunningDistroInstance(): Promise<DistroVersionPair>
+    {
+        return { distro: UBUNTU_DISTRO_INFO_KEY, version: '24.04' };
+    }
+}
 
 suite('Linux Version Resolver Tests', function ()
 {
@@ -162,6 +167,17 @@ suite('Linux Version Resolver Tests', function ()
             mockDistroProvider.globalPathReturnValue = null;
             mockDistroProvider.distroFeedReturnValue = ``;
         }
+    });
+
+    test('It returns a failed runtime package installation exit code', async () =>
+    {
+        mockDistroProvider.installReturnValue = '1';
+        const platformIndependentResolver = new MockLinuxVersionResolver(context, getMockUtilityContext(), mockExecutor, mockDistroProvider);
+
+        const result = await platformIndependentResolver.ValidateAndInstall('7.0.9', 'runtime');
+
+        assert.equal(result, '1');
+        mockDistroProvider.installReturnValue = '';
     });
 
     test('It rejects downloading a lower patch of a major minor', async () =>
