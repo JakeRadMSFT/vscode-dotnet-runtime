@@ -390,6 +390,11 @@ export function activate(vsCodeContext: vscode.ExtensionContext, extensionContex
 
     const dotnetAcquireGlobalRuntimeRegistration = vscode.commands.registerCommand(`${commandPrefix}.${commandKeys.acquireGlobalRuntime}`, async (commandContext: IDotnetAcquireContext): Promise<IDotnetAcquireResult | undefined> =>
     {
+        if (os.platform() !== 'win32')
+        {
+            throw new Error('Global .NET runtime and ASP.NET Core runtime acquisition is only supported on Windows.');
+        }
+
         const mode: DotnetInstallMode = commandContext.mode === 'aspnetcore' ? 'aspnetcore' : 'runtime';
         return acquireGlobal(commandContext, mode, commandKeys.acquireGlobalRuntime);
     });

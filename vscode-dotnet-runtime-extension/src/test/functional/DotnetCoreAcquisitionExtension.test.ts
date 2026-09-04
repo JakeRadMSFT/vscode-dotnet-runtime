@@ -617,15 +617,35 @@ suite('DotnetCoreAcquisitionExtension End to End', function ()
         assert.equal(pathAfterInstall, originalPath, `Global ${mode} acquisition should not update PATH`);
     }
 
-    test('Install Runtime Globally E2E', async () =>
+    if (os.platform() === 'win32')
     {
-        await runGlobalRuntimeInstallTest('runtime');
-    }).timeout(standardTimeoutTime);
+        test('Install Runtime Globally E2E', async () =>
+        {
+            await runGlobalRuntimeInstallTest('runtime');
+        }).timeout(standardTimeoutTime);
 
-    test('Install ASP.NET Core Runtime Globally E2E', async () =>
+        test('Install ASP.NET Core Runtime Globally E2E', async () =>
+        {
+            await runGlobalRuntimeInstallTest('aspnetcore');
+        }).timeout(standardTimeoutTime);
+    }
+    else
     {
-        await runGlobalRuntimeInstallTest('aspnetcore');
-    }).timeout(standardTimeoutTime);
+        test('Global runtime acquisition is rejected outside Windows', async () =>
+        {
+            let error: unknown;
+            try
+            {
+                await vscode.commands.executeCommand('dotnet.acquireGlobalRuntime', { version: '10.0.1', requestingExtensionId, mode: 'runtime', installType: 'global' });
+            }
+            catch (err)
+            {
+                error = err;
+            }
+
+            assert.include((error as Error)?.message, 'only supported on Windows');
+        }).timeout(standardTimeoutTime);
+    }
 
     test('Telemetry Sent During Install and Uninstall', async () =>
     {
