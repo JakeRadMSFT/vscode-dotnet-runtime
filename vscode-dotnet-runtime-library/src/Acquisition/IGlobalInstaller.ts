@@ -20,39 +20,11 @@ export abstract class IGlobalInstaller {
         this.utilityContext = utilContext;
     }
 
-    public abstract installSDK(install : DotnetInstall) : Promise<string>
+    public abstract installGlobal(install : DotnetInstall) : Promise<string>
 
-    public abstract uninstallSDK(install : DotnetInstall) : Promise<string>
+    public abstract uninstallGlobal(install : DotnetInstall) : Promise<string>
 
-    public abstract getExpectedGlobalSDKPath(specificSDKVersionInstalled : string, installedArch : string, macPathShouldExist? : boolean) : Promise<string>
-
-    /**
-     * Install a .NET product globally (SDK, runtime, or ASP.NET Core runtime).
-     * Default implementation delegates to installSDK for backward compatibility.
-     */
-    public async installGlobal(install : DotnetInstall) : Promise<string>
-    {
-        return this.installSDK(install);
-    }
-
-    /**
-     * Uninstall a .NET product globally.
-     * Default implementation delegates to uninstallSDK for backward compatibility.
-     */
-    public async uninstallGlobal(install : DotnetInstall) : Promise<string>
-    {
-        return this.uninstallSDK(install);
-    }
-
-    /**
-     * Get the expected path where a globally installed .NET product's dotnet executable resides.
-     * For runtimes, this is the same location as the SDK (the shared dotnet host).
-     * Default implementation delegates to getExpectedGlobalSDKPath for backward compatibility.
-     */
-    public async getExpectedGlobalDotnetPath(specificVersionInstalled : string, installedArch : string, macPathShouldExist? : boolean) : Promise<string>
-    {
-        return this.getExpectedGlobalSDKPath(specificVersionInstalled, installedArch, macPathShouldExist);
-    }
+    public abstract getExpectedGlobalDotnetPath(specificVersionInstalled : string, installedArch : string, macPathShouldExist? : boolean) : Promise<string>
 
     /**
      *

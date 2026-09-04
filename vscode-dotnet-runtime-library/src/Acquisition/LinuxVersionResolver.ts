@@ -255,6 +255,12 @@ If you experience issues, please reach out on https://github.com/dotnet/vscode-d
         this.workerContext.eventStream.post(new DotnetInstallLinuxChecks(`Checking to see if we should install, update, or cancel...`));
         if (mode !== 'sdk')
         {
+            if (existingInstall && await this.distroSDKProvider!.dotnetPackageExistsOnSystem(fullySpecifiedDotnetVersion, mode))
+            {
+                this.workerContext.eventStream.post(new DotnetUpgradedEvent(`Updating or repairing .NET ${mode} packages for ${fullySpecifiedDotnetVersion}.`));
+                return (await this.distroSDKProvider!.upgradeDotnet(fullySpecifiedDotnetVersion, mode)) === '0' ? String(this.okUpdateExitCode) : '1';
+            }
+
             return '0';
         }
 

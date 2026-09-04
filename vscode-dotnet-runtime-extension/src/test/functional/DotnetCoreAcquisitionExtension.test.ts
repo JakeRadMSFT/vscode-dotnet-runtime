@@ -582,6 +582,24 @@ suite('DotnetCoreAcquisitionExtension End to End', function ()
         await runGlobalSdkInstallTest('10.0.1xx');
     }).timeout(standardTimeoutTime * 1000);
 
+    for (const sampleCommand of ['sample.dotnet.acquireGlobalRuntime', 'sample.dotnet.acquireGlobalASPNETRuntime'])
+    {
+        test(`${sampleCommand} invokes global runtime acquisition`, async () =>
+        {
+            process.env.VSCODE_DOTNET_GLOBAL_INSTALL_FAKE_PATH = 'true';
+            try
+            {
+                const result = await vscode.commands.executeCommand<IDotnetAcquireResult>(sampleCommand, '10.0.1');
+                assert.exists(result, `${sampleCommand} returned a result`);
+                assert.equal(result!.dotnetPath, path.join('fake-sdk', getDotnetExecutable()));
+            }
+            finally
+            {
+                process.env.VSCODE_DOTNET_GLOBAL_INSTALL_FAKE_PATH = undefined;
+            }
+        }).timeout(standardTimeoutTime);
+    }
+
     test('Telemetry Sent During Install and Uninstall', async () =>
     {
         if (!vscode.env.isTelemetryEnabled)

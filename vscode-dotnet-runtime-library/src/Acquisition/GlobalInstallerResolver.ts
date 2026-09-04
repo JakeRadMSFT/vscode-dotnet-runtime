@@ -204,7 +204,9 @@ export class GlobalInstallerResolver
                 this.getIndexUrl(versionUtils.getMajorMinor(fullySpecifiedVersion, this.context.eventStream, this.context)));
             return [installerUrlAndHash[0], fullySpecifiedVersion, installerUrlAndHash[1]];
         }
-        else if (versionUtils.isFullySpecifiedVersion(version, this.context.eventStream, this.context))
+        else if (
+            (this.installMode === 'sdk' && versionUtils.isFullySpecifiedVersion(version, this.context.eventStream, this.context)) ||
+            (this.installMode !== 'sdk' && versionUtils.isFullySpecifiedRuntimeVersion(version)))
         {
             this.context.eventStream.post(new DotnetVersionCategorizedEvent(`The VersionResolver resolved the version ${version} to be a fully specified version.`));
             const fullySpecifiedVersionRequested = version;

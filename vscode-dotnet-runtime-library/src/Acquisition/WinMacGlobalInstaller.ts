@@ -32,6 +32,7 @@ import { FileUtilities } from '../Utils/FileUtilities';
 import { getInstallFromContext } from '../Utils/InstallIdUtilities';
 import { WebRequestWorkerSingleton } from '../Utils/WebRequestWorkerSingleton';
 import { DotnetInstallMode } from './DotnetInstallMode';
+import { DotnetResolver } from './DotnetResolver';
 import { VersionResolver } from './VersionResolver';
 import * as versionUtils from './VersionUtilities';
 
@@ -141,18 +142,13 @@ This report should be made at https://github.com/dotnet/vscode-dotnet-runtime/is
         return '';
     }
 
-    public async installSDK(installation: DotnetInstall): Promise<string>
-    {
-        return this.installGlobal(installation);
-    }
-
     public override async installGlobal(installation: DotnetInstall): Promise<string>
     {
         return executeWithLock(this.acquisitionContext.eventStream, false, GLOBAL_INSTALL_STATE_MODIFIER_LOCK(this.acquisitionContext.installDirectoryProvider, installation), GLOBAL_LOCK_PING_DURATION_MS, this.acquisitionContext.timeoutSeconds * 1000,
             async (install: DotnetInstall) =>
             {
-                // Check for conflicting windows installs (SDK-specific)
-                if (os.platform() === 'win32' && this.mode === 'sdk')
+                // Check for Windows installs that the product installer would reject as a downgrade.
+                if (os.platform() === 'win32')
                 {
                     const conflictingVersion = await this.GlobalWindowsInstallWithConflictingVersionAlreadyExists(this.installingVersion);
                     if (conflictingVersion !== '')
@@ -234,11 +230,6 @@ This report should be made at https://github.com/dotnet/vscode-dotnet-runtime/is
             this.acquisitionContext.eventStream.post(err);
             throw err.error;
         }
-    }
-
-    public async uninstallSDK(installation: DotnetInstall): Promise<string>
-    {
-        return this.uninstallGlobal(installation);
     }
 
     public override async uninstallGlobal(installation: DotnetInstall): Promise<string>
@@ -409,7 +400,7 @@ Permissions: ${JSON.stringify(await this.commandRunner.execute(CommandExecutor.m
 
     // async is needed to match the interface even if we don't use await.
 
-    public async getExpectedGlobalSDKPath(specificSDKVersionInstalled: string, installedArch: string, macPathShouldExist = true): Promise<string>
+    public override async getExpectedGlobalDotnetPath(specificSDKVersionInstalled: string, installedArch: string, macPathShouldExist = true): Promise<string>
     {
         if (os.platform() === 'win32')
         {
@@ -533,7 +524,7 @@ Please correct your PATH variable or make sure the 'open' utility is installed s
                 this.acquisitionContext.eventStream.post(new MacInstallerFailure(`The installer failed.`, installerResult.status, installerResult.stderr, installerResult.stdout));
                 await this.darwinInstallBackup(installerPath);
 
-                const expectedDotnetHostPath = await this.getExpectedGlobalSDKPath(this.acquisitionContext.acquisitionContext.version, this.acquisitionContext.acquisitionContext.architecture ?? getDefaultArchitecture());
+                const expectedDotnetHostPath = await this.getExpectedGlobalDotnetPath(this.acquisitionContext.acquisitionContext.version, this.acquisitionContext.acquisitionContext.architecture ?? getDefaultArchitecture());
                 const expectedInstall = getInstallFromContext(this.acquisitionContext);
                 const validatedInstall = this.acquisitionContext.installationValidator.validateDotnetInstall(expectedInstall, expectedDotnetHostPath, false, false);
                 if (validatedInstall)
@@ -603,25 +594,32 @@ Permissions: ${JSON.stringify(await this.commandRunner.execute(CommandExecutor.m
      */
     public async GlobalWindowsInstallWithConflictingVersionAlreadyExists(requestedVersion: string): Promise<string>
     {
-        // Note that we could be more intelligent here and consider only if the SDKs conflict within an architecture, but for now we won't do this.
-        const sdks: Array<string> = await this.registry.getGlobalSdkVersionsInstalledOnMachine();
-        for (const sdk of sdks)
+        const installedVersions = this.mode === 'sdk'
+            ? await this.registry.getGlobalSdkVersionsInstalledOnMachine()
+            : (await new DotnetResolver(this.acquisitionContext, this.utilityContext, this.commandRunner).getDotnetInstalls(
+                await this.getExpectedGlobalDotnetPath(requestedVersion, this.acquisitionContext.acquisitionContext.architecture ?? getDefaultArchitecture(), false),
+                this.mode,
+                this.acquisitionContext.acquisitionContext.architecture)).map(install => install.version);
+
+        return this.findConflictingVersion(requestedVersion, installedVersions);
+    }
+
+    private findConflictingVersion(requestedVersion: string, installedVersions: string[]): string
+    {
+        for (const installedVersion of installedVersions)
         {
             if
-                ( // Side by side installs of the same major.minor and band can cause issues in some cases. So we decided to just not allow it unless upgrading to a newer patch version.
+                ( // Side by side installs of the same major.minor and SDK feature band can cause issues in some cases. Do not allow them unless upgrading to a newer patch version.
                 // The installer can catch this but we can avoid unnecessary work this way,
                 // and for windows the installer may never appear to the user. With this approach, we don't need to handle installer error codes.
-                // compareSDKPatchOrPreRelease is pre-release aware, so a request for a newer pre-release of the same
-                // feature-band patch (e.g. 11.0.100-preview.6 when 11.0.100-preview.5 is installed) is treated as an
-                // upgrade rather than an existing conflicting install.
                 Number(versionUtils.getMajorMinor(requestedVersion, this.acquisitionContext.eventStream, this.acquisitionContext)) ===
-                Number(versionUtils.getMajorMinor(sdk, this.acquisitionContext.eventStream, this.acquisitionContext)) &&
-                Number(versionUtils.getFeatureBandFromVersion(requestedVersion, this.acquisitionContext.eventStream, this.acquisitionContext)) ===
-                Number(versionUtils.getFeatureBandFromVersion(sdk, this.acquisitionContext.eventStream, this.acquisitionContext)) &&
-                versionUtils.compareSDKPatchOrPreRelease(requestedVersion, sdk, this.acquisitionContext.eventStream, this.acquisitionContext) <= 0
+                Number(versionUtils.getMajorMinor(installedVersion, this.acquisitionContext.eventStream, this.acquisitionContext)) &&
+                (this.mode !== 'sdk' || Number(versionUtils.getFeatureBandFromVersion(requestedVersion, this.acquisitionContext.eventStream, this.acquisitionContext)) ===
+                    Number(versionUtils.getFeatureBandFromVersion(installedVersion, this.acquisitionContext.eventStream, this.acquisitionContext))) &&
+                versionUtils.compareVersionsIncludingPreRelease(requestedVersion, installedVersion) <= 0
             )
             {
-                return sdk;
+                return installedVersion;
             }
         }
 

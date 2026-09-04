@@ -4,12 +4,11 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 
-import * as os from 'os';
 import * as path from 'path';
 import { IUtilityContext } from '../Utils/IUtilityContext';
 import { executeWithLock, getDotnetExecutable } from '../Utils/TypescriptUtilities';
 import { GLOBAL_LOCK_PING_DURATION_MS } from './CacheTimeConstants';
-import { GetDotnetInstallInfo } from './DotnetInstall';
+import { DotnetInstall } from './DotnetInstall';
 import { DotnetInstallMode } from './DotnetInstallMode';
 import { IAcquisitionWorkerContext } from './IAcquisitionWorkerContext';
 import { IGlobalInstaller } from './IGlobalInstaller';
@@ -31,37 +30,22 @@ export class LinuxGlobalInstaller extends IGlobalInstaller
         this.mode = mode;
     }
 
-    public async installSDK(): Promise<string>
-    {
-        return this.installGlobal();
-    }
-
-    public override async installGlobal(): Promise<string>
+    public override async installGlobal(install: DotnetInstall): Promise<string>
     {
         await this.linuxSDKResolver.Initialize();
 
         return executeWithLock(this.acquisitionContext.eventStream, false, GLOBAL_INSTALL_STATE_MODIFIER_LOCK(this.acquisitionContext.installDirectoryProvider,
-            GetDotnetInstallInfo(this.version, this.mode, 'global', os.arch())), GLOBAL_LOCK_PING_DURATION_MS, this.acquisitionContext.timeoutSeconds * 1000,
+            install), GLOBAL_LOCK_PING_DURATION_MS, this.acquisitionContext.timeoutSeconds * 1000,
             async () =>
             {
                 return this.linuxSDKResolver.ValidateAndInstall(this.version, this.mode);
             },);
     }
 
-    public async uninstallSDK(): Promise<string>
-    {
-        return this.uninstallGlobal();
-    }
-
-    public override async uninstallGlobal(): Promise<string>
+    public override async uninstallGlobal(_install: DotnetInstall): Promise<string>
     {
         await this.linuxSDKResolver.Initialize();
         return this.linuxSDKResolver.Uninstall(this.version, this.mode);
-    }
-
-    public async getExpectedGlobalSDKPath(specificSDKVersionInstalled: string, installedArch: string, macPathShouldExist = true): Promise<string>
-    {
-        return this.getExpectedGlobalDotnetPath(specificSDKVersionInstalled, installedArch, macPathShouldExist);
     }
 
     public override async getExpectedGlobalDotnetPath(specificVersionInstalled: string, installedArch: string, macPathShouldExist = true): Promise<string>

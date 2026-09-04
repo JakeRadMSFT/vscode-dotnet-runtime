@@ -121,7 +121,7 @@ suite('Linux Version Resolver Tests', function ()
         }
     });
 
-    test('It installs runtime products without applying SDK update logic', async () =>
+    test('It updates installed runtime products through the package manager', async () =>
     {
         if (shouldRun)
         {
@@ -134,13 +134,33 @@ suite('Linux Version Resolver Tests', function ()
             {
                 const okResult = await resolver.ValidateAndInstall('7.0.9', mode);
                 assert.equal(okResult, '0');
-                assert.equal(mockExecutor.attemptedCommand, 'install dotnet');
+                assert.equal(mockExecutor.attemptedCommand, 'update dotnet');
             }
 
             mockDistroProvider.globalPathReturnValue = null;
             mockDistroProvider.distroFeedReturnValue = ``;
             mockDistroProvider.packageExistsReturnValue = false;
             mockDistroProvider.globalVersionReturnValue = null;
+        }
+    });
+
+    test('It installs runtime products when their package is not installed', async () =>
+    {
+        if (shouldRun)
+        {
+            mockDistroProvider.globalPathReturnValue = `/`;
+            mockDistroProvider.distroFeedReturnValue = `/`;
+            mockDistroProvider.packageExistsReturnValue = false;
+
+            for (const mode of ['runtime', 'aspnetcore'] as const)
+            {
+                const okResult = await resolver.ValidateAndInstall('7.0.9', mode);
+                assert.equal(okResult, '0');
+                assert.equal(mockExecutor.attemptedCommand, 'install dotnet');
+            }
+
+            mockDistroProvider.globalPathReturnValue = null;
+            mockDistroProvider.distroFeedReturnValue = ``;
         }
     });
 

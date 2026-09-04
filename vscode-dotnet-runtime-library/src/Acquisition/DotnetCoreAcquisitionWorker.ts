@@ -49,7 +49,7 @@ import { IFileUtilities } from '../Utils/IFileUtilities';
 import { getInstallFromContext, getInstallIdCustomArchitecture } from '../Utils/InstallIdUtilities';
 import { IUtilityContext } from '../Utils/IUtilityContext';
 import { executeWithLock, getDotnetExecutable, isRunningUnderWSL } from '../Utils/TypescriptUtilities';
-import { DOTNET_INFORMATION_CACHE_DURATION_MS, GLOBAL_LOCK_PING_DURATION_MS, LOCAL_LOCK_PING_DURATION_MS } from './CacheTimeConstants';
+import { GLOBAL_LOCK_PING_DURATION_MS, LOCAL_LOCK_PING_DURATION_MS } from './CacheTimeConstants';
 import { directoryProviderFactory } from './DirectoryProviderFactory';
 import { DotnetConditionValidator } from './DotnetConditionValidator';
 import { getDefaultArchitecture } from './ArchitectureUtilities';
@@ -60,11 +60,13 @@ import
     IsEquivalentInstallation
 } from './DotnetInstall';
 import { DotnetInstallMode } from './DotnetInstallMode';
+import { DotnetResolver } from './DotnetResolver';
 import { GlobalInstallerResolver } from './GlobalInstallerResolver';
 import { IAcquisitionInvoker } from './IAcquisitionInvoker';
 import { IAcquisitionWorkerContext } from './IAcquisitionWorkerContext';
 import { IDotnetCoreAcquisitionWorker } from './IDotnetCoreAcquisitionWorker';
 import { IGlobalInstaller } from './IGlobalInstaller';
+import { IDotnetListInfo } from './IDotnetListInfo';
 import
 {
     InstallRecord,
@@ -172,9 +174,9 @@ export class DotnetCoreAcquisitionWorker implements IDotnetCoreAcquisitionWorker
                 // Requested version has already been installed.
                 const dotnetExePath = install.dotnetInstall.isGlobal ?
                     os.platform() === 'linux' ?
-                        await new LinuxGlobalInstaller(context, this.utilityContext, install.dotnetInstall.version).getExpectedGlobalSDKPath(
+                        await new LinuxGlobalInstaller(context, this.utilityContext, install.dotnetInstall.version).getExpectedGlobalDotnetPath(
                             install.dotnetInstall.version, install.dotnetInstall.architecture) :
-                        await new WinMacGlobalInstaller(context, this.utilityContext, install.dotnetInstall.version, '', '').getExpectedGlobalSDKPath(
+                        await new WinMacGlobalInstaller(context, this.utilityContext, install.dotnetInstall.version, '', '').getExpectedGlobalDotnetPath(
                             install.dotnetInstall.version, install.dotnetInstall.architecture) :
                     path.join(context.installDirectoryProvider.getInstallDir(install.dotnetInstall.installId), this.dotnetExecutable);
 
@@ -368,45 +370,28 @@ export class DotnetCoreAcquisitionWorker implements IDotnetCoreAcquisitionWorker
         return null;
     }
 
-    private getInstalledVersionsCommand(context: IAcquisitionWorkerContext)
+    private isInstallListed(installs: IDotnetListInfo[], mode: DotnetInstallMode, version: string, allowSdkMajorMinorMatch = false): boolean
     {
-        const listArgument = context.acquisitionContext.mode === 'sdk' ? '--list-sdks' : '--list-runtimes';
-        return CommandExecutor.makeCommand('dotnet', [listArgument, '--arch']);
-    }
-
-    private isInstallListed(output: string, mode: DotnetInstallMode, version: string, allowSdkMajorMinorMatch = false): boolean
-    {
-        const expectedFramework = mode === 'runtime' ? 'Microsoft.NETCore.App' : 'Microsoft.AspNetCore.App';
-        return output.split(/\r?\n/).some(line =>
+        return installs.some(install =>
         {
-            const tokens = line.trim().split(/\s+/);
-            if (mode === 'sdk')
-            {
-                return tokens.length >= 2 && (tokens[0] === version || (allowSdkMajorMinorMatch && tokens[0].startsWith(`${version}.`)));
-            }
-
-            return tokens.length >= 3 && tokens[0] === expectedFramework && tokens[1] === version;
+            return install.mode === mode && (install.version === version ||
+                (mode === 'sdk' && allowSdkMajorMinorMatch && install.version.startsWith(`${version}.`)));
         });
     }
 
     private async dotnetInstallIsFound(context: IAcquisitionWorkerContext, version: string): Promise<boolean>
     {
-        const executor = new CommandExecutor(context, this.utilityContext);
-        const listVersionsCommand = this.getInstalledVersionsCommand(context);
-        const result = await executor.execute(listVersionsCommand, { dotnetInstallToolCacheTtlMs: DOTNET_INFORMATION_CACHE_DURATION_MS }, false);
+        const mode = context.acquisitionContext.mode ?? 'runtime';
+        const installedDotnets = await new DotnetResolver(context, this.utilityContext).getDotnetInstalls(
+            this.dotnetExecutable, mode, context.acquisitionContext.architecture);
 
-        if (result.status !== '0')
-        {
-            return false;
-        }
-
-        if (os.platform() === 'linux' && context?.acquisitionContext?.mode === 'sdk' && context.acquisitionContext?.installType === 'global')
+        if (os.platform() === 'linux' && mode === 'sdk' && context.acquisitionContext.installType === 'global')
         {
             // There is a bug where the version marked in the folder / install is not latest if ubuntu is out of date for global installs
-            return this.isInstallListed(result.stdout, 'sdk', versionUtils.getMajorMinor(version, context.eventStream, context), true);
+            return this.isInstallListed(installedDotnets, mode, versionUtils.getMajorMinor(version, context.eventStream, context), true);
         }
 
-        return this.isInstallListed(result.stdout, context.acquisitionContext.mode ?? 'runtime', version);
+        return this.isInstallListed(installedDotnets, mode, version);
     }
 
     private getDefaultInternalArchitecture(existingArch: string | null | undefined)
@@ -473,6 +458,7 @@ export class DotnetCoreAcquisitionWorker implements IDotnetCoreAcquisitionWorker
         if (process.env.VSCODE_DOTNET_GLOBAL_INSTALL_FAKE_PATH && process.env.VSCODE_DOTNET_GLOBAL_INSTALL_FAKE_PATH === 'true')
         {
             context.eventStream.post(new DotnetFakeSDKEnvironmentVariableTriggered(`VSCODE_DOTNET_GLOBAL_INSTALL_FAKE_PATH has been set.`));
+            // Return a realistic executable file path so callers that derive its directory behave as they would for a real install.
             return path.join('fake-sdk', getDotnetExecutable());
         }
 
@@ -670,8 +656,8 @@ Other dependents remain.`));
                         new LinuxGlobalInstaller(context, this.utilityContext, installingVersion) :
                         new WinMacGlobalInstaller(context, this.utilityContext, installingVersion, await globalInstallerResolver.getInstallerUrl(), await globalInstallerResolver.getInstallerHash());
 
-                    systemInstallPath = await installer.getExpectedGlobalSDKPath(installingVersion, install.architecture);
-                    uninstallResult = await installer.uninstallSDK(install);
+                    systemInstallPath = await installer.getExpectedGlobalDotnetPath(installingVersion, install.architecture);
+                    uninstallResult = await installer.uninstallGlobal(install);
                     LocalMemoryCacheSingleton.getInstance().invalidateEntriesContaining('dotnet', context);
                     await new CommandExecutor(context, this.utilityContext).endSudoProcessMaster(context.eventStream);
                     if (uninstallResult === '0')

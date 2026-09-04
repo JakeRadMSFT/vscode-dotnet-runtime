@@ -312,17 +312,16 @@ export function activate(vsCodeContext: vscode.ExtensionContext, extensionContex
         return dotnetPath;
     }
 
-    const dotnetAcquireGlobalSDKRegistration = vscode.commands.registerCommand(`${commandPrefix}.${commandKeys.acquireGlobalSDK}`, async (commandContext: IDotnetAcquireContext): Promise<IDotnetAcquireResult | undefined> =>
+    const acquireGlobal = async (commandContext: IDotnetAcquireContext, mode: DotnetInstallMode, commandKey: string): Promise<IDotnetAcquireResult | undefined> =>
     {
-        commandContext.mode = commandContext.mode ?? 'sdk' as DotnetInstallMode;
+        commandContext.mode = mode;
 
         if (commandContext.requestingExtensionId === undefined)
         {
             return Promise.reject(new Error('No requesting extension id was provided.'));
         }
 
-        let fullyResolvedVersion = '';
-        const workerContext = getAcquisitionWorkerContext(commandContext.mode, commandContext);
+        const workerContext = getAcquisitionWorkerContext(mode, commandContext);
         const worker = getAcquisitionWorker();
 
         const pathResult = await callWithErrorHandling(async () =>
@@ -330,68 +329,6 @@ export function activate(vsCodeContext: vscode.ExtensionContext, extensionContex
             // Warning: Between now and later in this call-stack, the context 'version' is incomplete as it has not been resolved.
             // Errors between here and the place where it is resolved cannot be routed to one another.
 
-            telemetryObserver?.setAcquisitionContext(workerContext, commandContext);
-
-            if (commandContext.version === '' || !commandContext.version)
-            {
-                throw new EventCancellationError('BadContextualRuntimeVersionError',
-                    `No version was defined to install.`);
-            }
-
-            globalEventStream.post(new DotnetAcquisitionRequested(commandContext.version, commandContext.requestingExtensionId ?? 'notProvided', commandContext.mode!, commandContext.installType ?? 'global'));
-
-            const existingOfflinePath = await getExistingInstallIfOffline(worker, workerContext);
-            if (existingOfflinePath)
-            {
-                return Promise.resolve(existingOfflinePath);
-            }
-
-            const globalInstallerResolver = new GlobalInstallerResolver(workerContext, commandContext.version);
-            fullyResolvedVersion = await globalInstallerResolver.getFullySpecifiedVersion();
-
-            // Reset context to point to the fully specified version so it is not possible for someone to access incorrect data during the install process.
-            // Note: This will impact the context object given to the worker and error handler since objects own a copy of a reference in JS.
-            commandContext.version = fullyResolvedVersion;
-            telemetryObserver?.setAcquisitionContext(workerContext, commandContext);
-
-            outputChannelObserver.showOutput();
-            const dotnetPath = await worker.acquireGlobalSDK(workerContext, globalInstallerResolver);
-
-            // setPathEnvVar expects the directory holding the dotnet executable, not the executable file itself.
-            new CommandExecutor(workerContext, utilContext).setPathEnvVar(path.dirname(dotnetPath.dotnetPath), moreInfoUrl, displayWorker, vsCodeExtensionContext, true);
-            return dotnetPath;
-        }, getIssueContext(existingPathConfigWorker)(commandContext.errorConfiguration, commandKeys.acquireGlobalSDK), commandContext.requestingExtensionId, workerContext, commandContext.rethrowError);
-
-        const installationId = getInstallIdCustomArchitecture(commandContext.version, commandContext.architecture, commandContext.mode, 'global');
-        const install = {
-            installId: installationId, version: commandContext.version, installMode: commandContext.mode, isGlobal: true,
-            architecture: commandContext.architecture ?? DotnetCoreAcquisitionWorker.defaultArchitecture()
-        } as DotnetInstall;
-
-        if (pathResult !== undefined && pathResult?.dotnetPath)
-        {
-            globalEventStream.post(new DotnetAcquisitionTotalSuccessEvent(commandContext.version, install, commandContext.requestingExtensionId ?? '', pathResult.dotnetPath));
-        }
-
-        void loggingObserver.flush();
-        return pathResult;
-    });
-
-    const dotnetAcquireGlobalRuntimeRegistration = vscode.commands.registerCommand(`${commandPrefix}.${commandKeys.acquireGlobalRuntime}`, async (commandContext: IDotnetAcquireContext): Promise<IDotnetAcquireResult | undefined> =>
-    {
-        const mode: DotnetInstallMode = commandContext.mode === 'aspnetcore' ? 'aspnetcore' : 'runtime';
-
-        if (commandContext.requestingExtensionId === undefined)
-        {
-            return Promise.reject(new Error('No requesting extension id was provided.'));
-        }
-
-        let fullyResolvedVersion = '';
-        const workerContext = getAcquisitionWorkerContext(mode, commandContext);
-        const worker = getAcquisitionWorker();
-
-        const pathResult = await callWithErrorHandling(async () =>
-        {
             telemetryObserver?.setAcquisitionContext(workerContext, commandContext);
 
             if (commandContext.version === '' || !commandContext.version)
@@ -409,18 +346,27 @@ export function activate(vsCodeContext: vscode.ExtensionContext, extensionContex
             }
 
             const globalInstallerResolver = new GlobalInstallerResolver(workerContext, commandContext.version, mode);
-            fullyResolvedVersion = await globalInstallerResolver.getFullySpecifiedVersion();
+            const fullyResolvedVersion = await globalInstallerResolver.getFullySpecifiedVersion();
 
+            // Reset context to point to the fully specified version so it is not possible for someone to access incorrect data during the install process.
+            // Note: This will impact the context object given to the worker and error handler since objects own a copy of a reference in JS.
             commandContext.version = fullyResolvedVersion;
             telemetryObserver?.setAcquisitionContext(workerContext, commandContext);
 
             outputChannelObserver.showOutput();
-            const dotnetPath = mode === 'aspnetcore'
-                ? await worker.acquireGlobalASPNET(workerContext, globalInstallerResolver)
-                : await worker.acquireGlobalRuntime(workerContext, globalInstallerResolver);
+            const dotnetPath = mode === 'sdk'
+                ? await worker.acquireGlobalSDK(workerContext, globalInstallerResolver)
+                : mode === 'aspnetcore'
+                    ? await worker.acquireGlobalASPNET(workerContext, globalInstallerResolver)
+                    : await worker.acquireGlobalRuntime(workerContext, globalInstallerResolver);
 
+            if (mode === 'sdk')
+            {
+                // setPathEnvVar expects the directory holding the dotnet executable, not the executable file itself.
+                new CommandExecutor(workerContext, utilContext).setPathEnvVar(path.dirname(dotnetPath.dotnetPath), moreInfoUrl, displayWorker, vsCodeExtensionContext, true);
+            }
             return dotnetPath;
-        }, getIssueContext(existingPathConfigWorker)(commandContext.errorConfiguration, commandKeys.acquireGlobalRuntime), commandContext.requestingExtensionId, workerContext, commandContext.rethrowError);
+        }, getIssueContext(existingPathConfigWorker)(commandContext.errorConfiguration, commandKey), commandContext.requestingExtensionId, workerContext, commandContext.rethrowError);
 
         const installationId = getInstallIdCustomArchitecture(commandContext.version, commandContext.architecture, mode, 'global');
         const install = {
@@ -433,8 +379,19 @@ export function activate(vsCodeContext: vscode.ExtensionContext, extensionContex
             globalEventStream.post(new DotnetAcquisitionTotalSuccessEvent(commandContext.version, install, commandContext.requestingExtensionId ?? '', pathResult.dotnetPath));
         }
 
-        loggingObserver.dispose();
+        await loggingObserver.flush();
         return pathResult;
+    };
+
+    const dotnetAcquireGlobalSDKRegistration = vscode.commands.registerCommand(`${commandPrefix}.${commandKeys.acquireGlobalSDK}`, async (commandContext: IDotnetAcquireContext): Promise<IDotnetAcquireResult | undefined> =>
+    {
+        return acquireGlobal(commandContext, 'sdk', commandKeys.acquireGlobalSDK);
+    });
+
+    const dotnetAcquireGlobalRuntimeRegistration = vscode.commands.registerCommand(`${commandPrefix}.${commandKeys.acquireGlobalRuntime}`, async (commandContext: IDotnetAcquireContext): Promise<IDotnetAcquireResult | undefined> =>
+    {
+        const mode: DotnetInstallMode = commandContext.mode === 'aspnetcore' ? 'aspnetcore' : 'runtime';
+        return acquireGlobal(commandContext, mode, commandKeys.acquireGlobalRuntime);
     });
 
     const dotnetListVersionsRegistration = vscode.commands.registerCommand(`${commandPrefix}.${commandKeys.listVersions}`,
