@@ -134,6 +134,7 @@ suite('Linux Version Resolver Tests', function ()
             mockDistroProvider.distroFeedReturnValue = `/`;
             mockDistroProvider.globalVersionReturnValue = mockVersion;
             mockDistroProvider.packageExistsReturnValue = true;
+            mockDistroProvider.upgradeReturnValue = '0';
 
             for (const mode of ['runtime', 'aspnetcore'] as const)
             {
@@ -146,6 +147,7 @@ suite('Linux Version Resolver Tests', function ()
             mockDistroProvider.distroFeedReturnValue = ``;
             mockDistroProvider.packageExistsReturnValue = false;
             mockDistroProvider.globalVersionReturnValue = null;
+            mockDistroProvider.upgradeReturnValue = '';
         }
     });
 
@@ -156,6 +158,7 @@ suite('Linux Version Resolver Tests', function ()
             mockDistroProvider.globalPathReturnValue = `/`;
             mockDistroProvider.distroFeedReturnValue = `/`;
             mockDistroProvider.packageExistsReturnValue = false;
+            mockDistroProvider.installReturnValue = '0';
 
             for (const mode of ['runtime', 'aspnetcore'] as const)
             {
@@ -166,6 +169,7 @@ suite('Linux Version Resolver Tests', function ()
 
             mockDistroProvider.globalPathReturnValue = null;
             mockDistroProvider.distroFeedReturnValue = ``;
+            mockDistroProvider.installReturnValue = '';
         }
     });
 

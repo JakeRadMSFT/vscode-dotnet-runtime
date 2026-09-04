@@ -599,7 +599,9 @@ Permissions: ${JSON.stringify(await this.commandRunner.execute(CommandExecutor.m
             : (await new DotnetResolver(this.acquisitionContext, this.utilityContext, this.commandRunner).getDotnetInstalls(
                 await this.getExpectedGlobalDotnetPath(requestedVersion, this.acquisitionContext.acquisitionContext.architecture ?? getDefaultArchitecture(), false),
                 this.mode,
-                this.acquisitionContext.acquisitionContext.architecture)).map(install => install.version);
+                this.acquisitionContext.acquisitionContext.architecture))
+                .filter(install => install.mode === this.mode)
+                .map(install => install.version);
 
         return this.findConflictingVersion(requestedVersion, installedVersions);
     }
