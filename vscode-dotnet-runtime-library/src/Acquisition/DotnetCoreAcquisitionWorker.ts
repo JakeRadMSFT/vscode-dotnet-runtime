@@ -370,12 +370,14 @@ export class DotnetCoreAcquisitionWorker implements IDotnetCoreAcquisitionWorker
         return null;
     }
 
-    private isInstallListed(installs: IDotnetListInfo[], mode: DotnetInstallMode, version: string, allowSdkMajorMinorMatch = false): boolean
+    private isInstallListed(context: IAcquisitionWorkerContext, installs: IDotnetListInfo[], mode: DotnetInstallMode, version: string, allowSdkMajorMinorMatch = false): boolean
     {
         return installs.some(install =>
         {
             return install.mode === mode && (install.version === version ||
-                (mode === 'sdk' && allowSdkMajorMinorMatch && install.version.startsWith(`${version}.`)));
+                (mode === 'sdk' && allowSdkMajorMinorMatch &&
+                    versionUtils.getMajorMinor(install.version, context.eventStream, context) ===
+                    versionUtils.getMajorMinor(version, context.eventStream, context)));
         });
     }
 
@@ -388,10 +390,10 @@ export class DotnetCoreAcquisitionWorker implements IDotnetCoreAcquisitionWorker
         if (os.platform() === 'linux' && mode === 'sdk' && context.acquisitionContext.installType === 'global')
         {
             // There is a bug where the version marked in the folder / install is not latest if ubuntu is out of date for global installs
-            return this.isInstallListed(installedDotnets, mode, versionUtils.getMajorMinor(version, context.eventStream, context), true);
+            return this.isInstallListed(context, installedDotnets, mode, version, true);
         }
 
-        return this.isInstallListed(installedDotnets, mode, version);
+        return this.isInstallListed(context, installedDotnets, mode, version);
     }
 
     private getDefaultInternalArchitecture(existingArch: string | null | undefined)

@@ -379,7 +379,7 @@ export function activate(vsCodeContext: vscode.ExtensionContext, extensionContex
             globalEventStream.post(new DotnetAcquisitionTotalSuccessEvent(commandContext.version, install, commandContext.requestingExtensionId ?? '', pathResult.dotnetPath));
         }
 
-        await loggingObserver.flush();
+        void loggingObserver.flush();
         return pathResult;
     };
 

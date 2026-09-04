@@ -269,10 +269,10 @@ suite('DotnetCoreAcquisitionWorker Unit Tests', function ()
             { mode: 'aspnetcore', version: '10.0.10', directory: 'aspnetcore', architecture: 'x64' },
         ];
 
-        assert.isTrue((acquisitionWorker as any).isInstallListed(installs, 'runtime', '10.0.1'));
-        assert.isFalse((acquisitionWorker as any).isInstallListed(installs, 'aspnetcore', '10.0.1'));
-        assert.isTrue((acquisitionWorker as any).isInstallListed(installs, 'aspnetcore', '10.0.10'));
-        assert.isFalse((acquisitionWorker as any).isInstallListed(installs, 'aspnetcore', '10.0.0'));
+        assert.isTrue((acquisitionWorker as any).isInstallListed(workerContext, installs, 'runtime', '10.0.1'));
+        assert.isFalse((acquisitionWorker as any).isInstallListed(workerContext, installs, 'aspnetcore', '10.0.1'));
+        assert.isTrue((acquisitionWorker as any).isInstallListed(workerContext, installs, 'aspnetcore', '10.0.10'));
+        assert.isFalse((acquisitionWorker as any).isInstallListed(workerContext, installs, 'aspnetcore', '10.0.0'));
     });
 
     test('Global SDK detection requires an exact version unless Linux major-minor matching is requested', () =>
@@ -281,9 +281,10 @@ suite('DotnetCoreAcquisitionWorker Unit Tests', function ()
         const acquisitionWorker = getMockAcquisitionWorker(workerContext);
         const installs = [{ mode: 'sdk', version: '10.0.100', directory: 'sdk', architecture: 'x64' }];
 
-        assert.isTrue((acquisitionWorker as any).isInstallListed(installs, 'sdk', '10.0.100'));
-        assert.isFalse((acquisitionWorker as any).isInstallListed(installs, 'sdk', '10.0.10'));
-        assert.isTrue((acquisitionWorker as any).isInstallListed(installs, 'sdk', '10.0', true));
+        assert.isTrue((acquisitionWorker as any).isInstallListed(workerContext, installs, 'sdk', '10.0.100'));
+        assert.isFalse((acquisitionWorker as any).isInstallListed(workerContext, installs, 'sdk', '10.0.10'));
+        assert.isTrue((acquisitionWorker as any).isInstallListed(workerContext, installs, 'sdk', '10.0', true));
+        assert.isTrue((acquisitionWorker as any).isInstallListed(workerContext, installs, 'sdk', '10.0.101', true));
     });
 
     test('Global install detection queries the tracked dotnet host', async () =>
