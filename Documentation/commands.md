@@ -36,7 +36,9 @@ The `version` accepts multiple formats:
 
 ### dotnet.acquireGlobalRuntime
 
-This command installs a .NET runtime in a system-level location. It accepts an [IDotnetAcquireContext](https://github.com/dotnet/vscode-dotnet-runtime/blob/main/vscode-dotnet-runtime-library/src/IDotnetAcquireContext.ts) object and returns an [IDotnetAcquireResult](https://github.com/dotnet/vscode-dotnet-runtime/blob/main/vscode-dotnet-runtime-library/src/IDotnetAcquireResult.ts).
+This *preview* command installs a .NET runtime in a system-level location. It accepts an [IDotnetAcquireContext](https://github.com/dotnet/vscode-dotnet-runtime/blob/main/vscode-dotnet-runtime-library/src/IDotnetAcquireContext.ts) object and returns an [IDotnetAcquireResult](https://github.com/dotnet/vscode-dotnet-runtime/blob/main/vscode-dotnet-runtime-library/src/IDotnetAcquireResult.ts).
+
+Note that limitations that apply to the global SDK command, such as the minimally supported Distros (Ubuntu/RHEL), also apply to the global runtime install command.
 
 Set `mode` to `runtime` for `Microsoft.NETCore.App` or `aspnetcore` for `Microsoft.AspNetCore.App`. The `version` may be a major version, major.minor version, or fully specified runtime version. The command may require elevation because it uses the operating system's global installer.
 
