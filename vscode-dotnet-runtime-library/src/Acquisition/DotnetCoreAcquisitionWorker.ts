@@ -174,9 +174,9 @@ export class DotnetCoreAcquisitionWorker implements IDotnetCoreAcquisitionWorker
                 // Requested version has already been installed.
                 const dotnetExePath = install.dotnetInstall.isGlobal ?
                     os.platform() === 'linux' ?
-                        await new LinuxGlobalInstaller(context, this.utilityContext, install.dotnetInstall.version).getExpectedGlobalDotnetPath(
+                        await new LinuxGlobalInstaller(context, this.utilityContext, install.dotnetInstall.version, install.dotnetInstall.installMode).getExpectedGlobalDotnetPath(
                             install.dotnetInstall.version, install.dotnetInstall.architecture) :
-                        await new WinMacGlobalInstaller(context, this.utilityContext, install.dotnetInstall.version, '', '').getExpectedGlobalDotnetPath(
+                        await new WinMacGlobalInstaller(context, this.utilityContext, install.dotnetInstall.version, '', '', null, null, install.dotnetInstall.installMode).getExpectedGlobalDotnetPath(
                             install.dotnetInstall.version, install.dotnetInstall.architecture) :
                     path.join(context.installDirectoryProvider.getInstallDir(install.dotnetInstall.installId), this.dotnetExecutable);
 

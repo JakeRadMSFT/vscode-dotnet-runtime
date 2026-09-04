@@ -77,7 +77,7 @@ export class WinMacGlobalInstaller extends IGlobalInstaller
     public file: IFileUtilities;
     protected webWorker: WebRequestWorkerSingleton;
     private invalidIntegrityError = `The integrity of the .NET install file is invalid, or there was no integrity to check and you denied the request to continue with those risks.
-We cannot verify our .NET file host at this time. Please try again later or install the SDK manually.`;
+We cannot verify our .NET file host at this time. Please try again later or install .NET manually.`;
 
     constructor(context: IAcquisitionWorkerContext, utilContext: IUtilityContext, installingVersion: string, installerUrl: string,
         installerHash: string, executor: ICommandExecutor | null = null, registryReader: IRegistryReader | null = null,

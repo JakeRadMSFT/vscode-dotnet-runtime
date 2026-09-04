@@ -148,6 +148,15 @@ suite('Windows & Mac Global Installer Tests', function ()
         }
     });
 
+    test('Integrity failure guidance is product neutral', () =>
+    {
+        const runtimeInstaller = new WinMacGlobalInstaller(getMockAcquisitionContext('runtime', '10.0.3'), getMockUtilityContext(), '10.0.3', mockUrl, mockHash,
+            mockExecutor, reader, 'runtime');
+
+        assert.notInclude((runtimeInstaller as any).invalidIntegrityError, 'SDK');
+        assert.include((runtimeInstaller as any).invalidIntegrityError, 'install .NET manually');
+    });
+
     test('It runs the correct install command', async () =>
     {
         mockExecutor.fakeReturnValue = { stdout: `0`, status: '0', stderr: '' };
