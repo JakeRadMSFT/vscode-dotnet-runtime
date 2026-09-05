@@ -14,13 +14,8 @@ import * as util from './TestUtility';
 import { getMockAcquisitionContext, getMockUtilityContext } from './TestUtility';
 const assert = chai.assert;
 
-class MockLinuxVersionResolver extends LinuxVersionResolver
-{
-    public override async getRunningDistroInstance(): Promise<DistroVersionPair>
-    {
-        return { distro: UBUNTU_DISTRO_INFO_KEY, version: '24.04' };
-    }
-}
+
+
 
 suite('Linux Version Resolver Tests', function ()
 {
@@ -124,64 +119,6 @@ suite('Linux Version Resolver Tests', function ()
             mockDistroProvider.packageExistsReturnValue = false;
             mockDistroProvider.globalVersionReturnValue = null;
         }
-    });
-
-    test('It updates installed runtime products through the package manager', async () =>
-    {
-        if (shouldRun)
-        {
-            mockDistroProvider.globalPathReturnValue = `/`;
-            mockDistroProvider.distroFeedReturnValue = `/`;
-            mockDistroProvider.globalVersionReturnValue = mockVersion;
-            mockDistroProvider.packageExistsReturnValue = true;
-            mockDistroProvider.upgradeReturnValue = '0';
-
-            for (const mode of ['runtime', 'aspnetcore'] as const)
-            {
-                const okResult = await resolver.ValidateAndInstall('7.0.9', mode);
-                assert.equal(okResult, '0');
-                assert.include(mockExecutor.attemptedCommand, 'update dotnet');
-            }
-
-            mockDistroProvider.globalPathReturnValue = null;
-            mockDistroProvider.distroFeedReturnValue = ``;
-            mockDistroProvider.packageExistsReturnValue = false;
-            mockDistroProvider.globalVersionReturnValue = null;
-            mockDistroProvider.upgradeReturnValue = '';
-        }
-    });
-
-    test('It installs runtime products when their package is not installed', async () =>
-    {
-        if (shouldRun)
-        {
-            mockDistroProvider.globalPathReturnValue = `/`;
-            mockDistroProvider.distroFeedReturnValue = `/`;
-            mockDistroProvider.packageExistsReturnValue = false;
-            mockDistroProvider.installReturnValue = '0';
-
-            for (const mode of ['runtime', 'aspnetcore'] as const)
-            {
-                const okResult = await resolver.ValidateAndInstall('7.0.9', mode);
-                assert.equal(okResult, '0');
-                assert.equal(mockExecutor.attemptedCommand, 'install dotnet');
-            }
-
-            mockDistroProvider.globalPathReturnValue = null;
-            mockDistroProvider.distroFeedReturnValue = ``;
-            mockDistroProvider.installReturnValue = '';
-        }
-    });
-
-    test('It returns a failed runtime package installation exit code', async () =>
-    {
-        mockDistroProvider.installReturnValue = '1';
-        const platformIndependentResolver = new MockLinuxVersionResolver(context, getMockUtilityContext(), mockExecutor, mockDistroProvider);
-
-        const result = await platformIndependentResolver.ValidateAndInstall('7.0.9', 'runtime');
-
-        assert.equal(result, '1');
-        mockDistroProvider.installReturnValue = '';
     });
 
     test('It rejects downloading a lower patch of a major minor', async () =>

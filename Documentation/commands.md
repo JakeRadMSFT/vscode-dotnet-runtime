@@ -38,7 +38,7 @@ The `version` accepts multiple formats:
 
 This *preview* command installs a .NET runtime in a system-level location on Windows. It accepts an [IDotnetAcquireContext](https://github.com/dotnet/vscode-dotnet-runtime/blob/main/vscode-dotnet-runtime-library/src/IDotnetAcquireContext.ts) object and returns an [IDotnetAcquireResult](https://github.com/dotnet/vscode-dotnet-runtime/blob/main/vscode-dotnet-runtime-library/src/IDotnetAcquireResult.ts). The command rejects requests on other operating systems.
 
-Set `mode` to `runtime` for `Microsoft.NETCore.App` or `aspnetcore` for `Microsoft.AspNetCore.App`. The `version` may be a major version, major.minor version, or fully specified runtime version. The command may require elevation because it uses the operating system's global installer.
+Set `mode` to `runtime` for `Microsoft.NETCore.App` or `aspnetcore` for `Microsoft.AspNetCore.App`; it defaults to `runtime` when omitted. The `version` may be a major version, major.minor version, or fully specified runtime version. The command may require elevation because it uses the operating system's global installer.
 
 **Offline behavior:** If the machine is offline, the extension attempts to find a compatible global installation it previously managed. If none is available, acquisition fails without downloading an installer.
 

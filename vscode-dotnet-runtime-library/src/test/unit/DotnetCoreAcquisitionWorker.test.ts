@@ -260,6 +260,22 @@ suite('DotnetCoreAcquisitionWorker Unit Tests', function ()
         await acquireWithVersion('1.0', 'aspnetcore');
     }).timeout(expectedTimeoutTime);
 
+    test('Global runtime worker methods reject outside Windows', async () =>
+    {
+        if (os.platform() !== 'win32')
+        {
+            const runtimeContext = getMockAcquisitionContext('runtime', '10.0.1');
+            const runtimeWorker = getMockAcquisitionWorker(runtimeContext);
+            const runtimeResolver = new GlobalInstallerResolver(runtimeContext, '10.0.1', 'runtime');
+            await assert.isRejected(runtimeWorker.acquireGlobalRuntime(runtimeContext, runtimeResolver), Error, 'only supported on Windows');
+
+            const aspNetContext = getMockAcquisitionContext('aspnetcore', '10.0.1');
+            const aspNetWorker = getMockAcquisitionWorker(aspNetContext);
+            const aspNetResolver = new GlobalInstallerResolver(aspNetContext, '10.0.1', 'aspnetcore');
+            await assert.isRejected(aspNetWorker.acquireGlobalASPNET(aspNetContext, aspNetResolver), Error, 'only supported on Windows');
+        }
+    });
+
     test('Global install detection requires the exact product and version', () =>
     {
         const workerContext = getMockAcquisitionContext('runtime', '10.0.1');
@@ -315,34 +331,37 @@ suite('DotnetCoreAcquisitionWorker Unit Tests', function ()
 
     test('Similar global install lookup preserves the tracked runtime mode', async () =>
     {
-        const [eventStream, extensionContext] = setupStates();
-        const workerContext = getMockAcquisitionContext('runtime', '10.0.1', expectedTimeoutTime, eventStream, extensionContext);
-        workerContext.acquisitionContext.installType = 'global';
-        const acquisitionWorker = getMockAcquisitionWorker(workerContext);
-        acquisitionWorker.enableNoInstallInvoker();
-        const install = getInstallFromContext(workerContext);
-        await extensionContext.update(installedVersionsKey, [{ dotnetInstall: install, installingExtensions: ['test'] }]);
+        if (os.platform() === 'win32')
+        {
+            const [eventStream, extensionContext] = setupStates();
+            const workerContext = getMockAcquisitionContext('runtime', '10.0.1', expectedTimeoutTime, eventStream, extensionContext);
+            workerContext.acquisitionContext.installType = 'global';
+            const acquisitionWorker = getMockAcquisitionWorker(workerContext);
+            acquisitionWorker.enableNoInstallInvoker();
+            const install = getInstallFromContext(workerContext);
+            await extensionContext.update(installedVersionsKey, [{ dotnetInstall: install, installingExtensions: ['test'] }]);
 
-        const originalLinuxGetPath = LinuxGlobalInstaller.prototype.getExpectedGlobalDotnetPath;
-        const originalWinMacGetPath = WinMacGlobalInstaller.prototype.getExpectedGlobalDotnetPath;
-        let installerMode: DotnetInstallMode | undefined;
-        const getExpectedPath = async function (this: LinuxGlobalInstaller | WinMacGlobalInstaller): Promise<string>
-        {
-            installerMode = (this as any).mode;
-            return path.join('global-dotnet', getDotnetExecutable());
-        };
-        LinuxGlobalInstaller.prototype.getExpectedGlobalDotnetPath = getExpectedPath;
-        WinMacGlobalInstaller.prototype.getExpectedGlobalDotnetPath = getExpectedPath;
+            const originalLinuxGetPath = LinuxGlobalInstaller.prototype.getExpectedGlobalDotnetPath;
+            const originalWinMacGetPath = WinMacGlobalInstaller.prototype.getExpectedGlobalDotnetPath;
+            let installerMode: DotnetInstallMode | undefined;
+            const getExpectedPath = async function (this: LinuxGlobalInstaller | WinMacGlobalInstaller): Promise<string>
+            {
+                installerMode = (this as any).mode;
+                return path.join('global-dotnet', getDotnetExecutable());
+            };
+            LinuxGlobalInstaller.prototype.getExpectedGlobalDotnetPath = getExpectedPath;
+            WinMacGlobalInstaller.prototype.getExpectedGlobalDotnetPath = getExpectedPath;
 
-        try
-        {
-            assert.exists(await acquisitionWorker.getSimilarExistingInstall(workerContext));
-            assert.equal(installerMode, 'runtime');
-        }
-        finally
-        {
-            LinuxGlobalInstaller.prototype.getExpectedGlobalDotnetPath = originalLinuxGetPath;
-            WinMacGlobalInstaller.prototype.getExpectedGlobalDotnetPath = originalWinMacGetPath;
+            try
+            {
+                assert.exists(await acquisitionWorker.getSimilarExistingInstall(workerContext));
+                assert.equal(installerMode, 'runtime');
+            }
+            finally
+            {
+                LinuxGlobalInstaller.prototype.getExpectedGlobalDotnetPath = originalLinuxGetPath;
+                WinMacGlobalInstaller.prototype.getExpectedGlobalDotnetPath = originalWinMacGetPath;
+            }
         }
     });
 

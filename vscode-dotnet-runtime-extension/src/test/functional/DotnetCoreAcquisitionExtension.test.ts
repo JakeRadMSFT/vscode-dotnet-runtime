@@ -582,10 +582,11 @@ suite('DotnetCoreAcquisitionExtension End to End', function ()
         await runGlobalSdkInstallTest('10.0.1xx');
     }).timeout(standardTimeoutTime * 1000);
 
-    async function runGlobalRuntimeInstallTest(mode: 'runtime' | 'aspnetcore')
+    async function runGlobalRuntimeInstallTest(mode: 'runtime' | 'aspnetcore' | undefined)
     {
         const version = '10.0.1';
-        const context: IDotnetAcquireContext = { version, requestingExtensionId, installType: mode === 'aspnetcore' ? 'local' : undefined, mode };
+        const expectedMode = mode ?? 'runtime';
+        const context: IDotnetAcquireContext = { version, requestingExtensionId, installType: expectedMode === 'aspnetcore' ? 'local' : undefined, mode };
         const originalPath = process.env.PATH;
         let result: IDotnetAcquireResult | undefined;
         let error: unknown;
@@ -609,25 +610,43 @@ suite('DotnetCoreAcquisitionExtension End to End', function ()
 
         if (error)
         {
-            throw new Error(`The global ${mode} acquisition failed for version ${version}. Error: ${error}`);
+            throw new Error(`The global ${expectedMode} acquisition failed for version ${version}. Error: ${error}`);
         }
 
-        assert.exists(result, `The global ${mode} acquisition command returned a result`);
+        assert.exists(result, `The global ${expectedMode} acquisition command returned a result`);
         assert.equal(result!.dotnetPath, path.join('fake-sdk', getDotnetExecutable()));
-        assert.equal(context.installType, 'global', `Global ${mode} acquisition should normalize the install type`);
-        assert.equal(pathAfterInstall, originalPath, `Global ${mode} acquisition should not update PATH`);
+        assert.equal(context.mode, expectedMode, `Global ${expectedMode} acquisition should normalize the mode`);
+        assert.equal(context.installType, 'global', `Global ${expectedMode} acquisition should normalize the install type`);
+        assert.equal(pathAfterInstall, originalPath, `Global ${expectedMode} acquisition should not update PATH`);
     }
 
     if (os.platform() === 'win32')
     {
         test('Install Runtime Globally E2E', async () =>
         {
-            await runGlobalRuntimeInstallTest('runtime');
+            await runGlobalRuntimeInstallTest(undefined);
         }).timeout(standardTimeoutTime);
 
         test('Install ASP.NET Core Runtime Globally E2E', async () =>
         {
             await runGlobalRuntimeInstallTest('aspnetcore');
+        }).timeout(standardTimeoutTime);
+
+        test('Global runtime acquisition rejects SDK mode', async () =>
+        {
+            let error: unknown;
+            try
+            {
+                await vscode.commands.executeCommand('dotnet.acquireGlobalRuntime', {
+                    version: '10.0.1', requestingExtensionId, mode: 'sdk'
+                });
+            }
+            catch (err)
+            {
+                error = err;
+            }
+
+            assert.include((error as Error)?.message, "Global runtime acquisition does not support mode 'sdk'.");
         }).timeout(standardTimeoutTime);
     }
     else

@@ -258,36 +258,13 @@ This report should be made at https://github.com/dotnet/vscode-dotnet-runtime/is
         else
         {
             const macPath = await this.getMacPath();
-            const subdirectories = this.getProductSubdirectories();
-            const rmArgs: string[] = [];
-            for (const subdir of subdirectories)
-            {
-                if (rmArgs.length > 0) { rmArgs.push('&&', 'rm', '-rf'); }
-                rmArgs.push(`${path.join(path.dirname(macPath), subdir, installation.version)}`);
-            }
-            const command = CommandExecutor.makeCommand(`rm`, [`-rf`, ...rmArgs], true);
+            const command = CommandExecutor.makeCommand(`rm`, [`-rf`, `${path.join(path.dirname(macPath), 'sdk', installation.version)}`, `&&`,
+                `rm`, `-rf`, `${path.join(path.dirname(macPath), 'sdk-manifests', installation.version)}`], true);
 
             const commandResult = await this.commandRunner.execute(command, { timeout: this.acquisitionContext.timeoutSeconds * 1000 }, false);
             this.handleTimeout(commandResult);
 
             return commandResult.status;
-        }
-    }
-
-    /**
-     * Returns the subdirectories within the dotnet root that contain files for this product type.
-     */
-    private getProductSubdirectories(): string[]
-    {
-        switch (this.mode)
-        {
-            case 'runtime':
-                return ['shared/Microsoft.NETCore.App'];
-            case 'aspnetcore':
-                return ['shared/Microsoft.AspNetCore.App'];
-            case 'sdk':
-            default:
-                return ['sdk', 'sdk-manifests'];
         }
     }
 

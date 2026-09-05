@@ -125,12 +125,22 @@ export class DotnetCoreAcquisitionWorker implements IDotnetCoreAcquisitionWorker
 
     public async acquireGlobalRuntime(context: IAcquisitionWorkerContext, installerResolver: GlobalInstallerResolver): Promise<IDotnetAcquireResult>
     {
+        if (os.platform() !== 'win32')
+        {
+            throw new Error('Global .NET runtime acquisition is only supported on Windows.');
+        }
+
         this.globalResolver = installerResolver;
         return this.acquire(context, 'runtime', installerResolver);
     }
 
     public async acquireGlobalASPNET(context: IAcquisitionWorkerContext, installerResolver: GlobalInstallerResolver): Promise<IDotnetAcquireResult>
     {
+        if (os.platform() !== 'win32')
+        {
+            throw new Error('Global ASP.NET Core runtime acquisition is only supported on Windows.');
+        }
+
         this.globalResolver = installerResolver;
         return this.acquire(context, 'aspnetcore', installerResolver);
     }
@@ -174,7 +184,7 @@ export class DotnetCoreAcquisitionWorker implements IDotnetCoreAcquisitionWorker
                 // Requested version has already been installed.
                 const dotnetExePath = install.dotnetInstall.isGlobal ?
                     os.platform() === 'linux' ?
-                        await new LinuxGlobalInstaller(context, this.utilityContext, install.dotnetInstall.version, install.dotnetInstall.installMode).getExpectedGlobalDotnetPath(
+                        await new LinuxGlobalInstaller(context, this.utilityContext, install.dotnetInstall.version).getExpectedGlobalDotnetPath(
                             install.dotnetInstall.version, install.dotnetInstall.architecture) :
                         await new WinMacGlobalInstaller(context, this.utilityContext, install.dotnetInstall.version, '', '', null, null, install.dotnetInstall.installMode).getExpectedGlobalDotnetPath(
                             install.dotnetInstall.version, install.dotnetInstall.architecture) :
@@ -452,7 +462,7 @@ export class DotnetCoreAcquisitionWorker implements IDotnetCoreAcquisitionWorker
         const installedVersions = await InstallTrackerSingleton.getInstance(context.eventStream, context.extensionState).getExistingInstalls(context.installDirectoryProvider);
 
         const installer: IGlobalInstaller = os.platform() === 'linux' ?
-            new LinuxGlobalInstaller(context, this.utilityContext, installingVersion, install.installMode) :
+            new LinuxGlobalInstaller(context, this.utilityContext, installingVersion) :
             new WinMacGlobalInstaller(context, this.utilityContext, installingVersion, await globalInstallerResolver.getInstallerUrl(), await globalInstallerResolver.getInstallerHash(),
                 null, null, install.installMode);
 
@@ -460,7 +470,8 @@ export class DotnetCoreAcquisitionWorker implements IDotnetCoreAcquisitionWorker
         if (process.env.VSCODE_DOTNET_GLOBAL_INSTALL_FAKE_PATH && process.env.VSCODE_DOTNET_GLOBAL_INSTALL_FAKE_PATH === 'true')
         {
             context.eventStream.post(new DotnetFakeSDKEnvironmentVariableTriggered(`VSCODE_DOTNET_GLOBAL_INSTALL_FAKE_PATH has been set.`));
-            // Return a realistic executable file path so callers that derive its directory behave as they would for a real install.
+            // Return a realistic executable file path (directory + host executable) so callers that derive the
+            // install directory via path.dirname(...) (e.g. setPathEnvVar) behave as they would for a real install.
             return path.join('fake-sdk', getDotnetExecutable());
         }
 

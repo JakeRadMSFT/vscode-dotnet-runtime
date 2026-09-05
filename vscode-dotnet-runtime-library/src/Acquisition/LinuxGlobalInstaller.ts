@@ -9,7 +9,6 @@ import { IUtilityContext } from '../Utils/IUtilityContext';
 import { executeWithLock, getDotnetExecutable } from '../Utils/TypescriptUtilities';
 import { GLOBAL_LOCK_PING_DURATION_MS } from './CacheTimeConstants';
 import { DotnetInstall } from './DotnetInstall';
-import { DotnetInstallMode } from './DotnetInstallMode';
 import { IAcquisitionWorkerContext } from './IAcquisitionWorkerContext';
 import { IGlobalInstaller } from './IGlobalInstaller';
 import { DotnetDistroSupportStatus, LinuxVersionResolver } from './LinuxVersionResolver';
@@ -20,14 +19,12 @@ export class LinuxGlobalInstaller extends IGlobalInstaller
 {
     private version: string;
     private linuxSDKResolver: LinuxVersionResolver;
-    private mode: DotnetInstallMode;
 
-    constructor(acquisitionContext: IAcquisitionWorkerContext, utilContext: IUtilityContext, fullySpecifiedDotnetVersion: string, mode: DotnetInstallMode = 'sdk')
+    constructor(acquisitionContext: IAcquisitionWorkerContext, utilContext: IUtilityContext, fullySpecifiedDotnetVersion: string)
     {
         super(acquisitionContext, utilContext);
         this.linuxSDKResolver = new LinuxVersionResolver(acquisitionContext, utilContext);
         this.version = fullySpecifiedDotnetVersion;
-        this.mode = mode;
     }
 
     public override async installGlobal(install: DotnetInstall): Promise<string>
@@ -38,21 +35,21 @@ export class LinuxGlobalInstaller extends IGlobalInstaller
             install), GLOBAL_LOCK_PING_DURATION_MS, this.acquisitionContext.timeoutSeconds * 1000,
             async () =>
             {
-                return this.linuxSDKResolver.ValidateAndInstall(this.version, this.mode);
+                return this.linuxSDKResolver.ValidateAndInstallSDK(this.version);
             },);
     }
 
     public override async uninstallGlobal(_install: DotnetInstall): Promise<string>
     {
         await this.linuxSDKResolver.Initialize();
-        return this.linuxSDKResolver.Uninstall(this.version, this.mode);
+        return this.linuxSDKResolver.UninstallSDK(this.version);
     }
 
     public override async getExpectedGlobalDotnetPath(specificVersionInstalled: string, installedArch: string, macPathShouldExist = true): Promise<string>
     {
         await this.linuxSDKResolver.Initialize();
 
-        const dotnetFolder = await (await this.linuxSDKResolver.distroCall()).getDotnetVersionSupportStatus(specificVersionInstalled, this.mode) === DotnetDistroSupportStatus.Distro ?
+        const dotnetFolder = await (await this.linuxSDKResolver.distroCall()).getDotnetVersionSupportStatus(specificVersionInstalled, 'sdk') === DotnetDistroSupportStatus.Distro ?
             (await this.linuxSDKResolver.distroCall()).getExpectedDotnetDistroFeedInstallationDirectory() :
             (await this.linuxSDKResolver.distroCall()).getExpectedDotnetMicrosoftFeedInstallationDirectory();
         return path.join(dotnetFolder, getDotnetExecutable());

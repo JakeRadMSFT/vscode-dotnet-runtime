@@ -248,22 +248,11 @@ If you experience issues, please reach out on https://github.com/dotnet/vscode-d
      * A string is returned in case we want to make this return more info about the update.
      * @remarks it is expected you are holding the global modifier lock when calling this function.
      */
-    private async UpdateOrRejectIfVersionRequestDoesNotRequireInstall(fullySpecifiedDotnetVersion: string, existingInstall: string | null, mode: DotnetInstallMode): Promise<string>
+    private async UpdateOrRejectIfVersionRequestDoesNotRequireInstall(fullySpecifiedDotnetVersion: string, existingInstall: string | null): Promise<string>
     {
         await this.Initialize();
 
         this.workerContext.eventStream.post(new DotnetInstallLinuxChecks(`Checking to see if we should install, update, or cancel...`));
-        if (mode !== 'sdk')
-        {
-            if (existingInstall && await this.distroSDKProvider!.dotnetPackageExistsOnSystem(fullySpecifiedDotnetVersion, mode))
-            {
-                this.workerContext.eventStream.post(new DotnetUpgradedEvent(`Updating or repairing .NET ${mode} packages for ${fullySpecifiedDotnetVersion}.`));
-                return (await this.distroSDKProvider!.upgradeDotnet(fullySpecifiedDotnetVersion, mode)) === '0' ? String(this.okUpdateExitCode) : '1';
-            }
-
-            return '0';
-        }
-
         if (existingInstall)
         {
             const existingGlobalInstallSDKVersion = await this.distroSDKProvider!.getInstalledGlobalDotnetVersionIfExists();
@@ -311,34 +300,28 @@ If you experience issues, please reach out on https://github.com/dotnet/vscode-d
     // It is expected you are holding the global modifier lock when calling this function.
     public async ValidateAndInstallSDK(fullySpecifiedDotnetVersion: string): Promise<string>
     {
-        return this.ValidateAndInstall(fullySpecifiedDotnetVersion, 'sdk');
-    }
-
-    // It is expected you are holding the global modifier lock when calling this function.
-    public async ValidateAndInstall(fullySpecifiedDotnetVersion: string, mode: 'sdk' | 'runtime' | 'aspnetcore'): Promise<string>
-    {
         await this.Initialize();
 
         // Verify the version of dotnet is supported
-        if (!(await this.distroSDKProvider!.isDotnetVersionSupported(fullySpecifiedDotnetVersion, mode)))
+        if (!(await this.distroSDKProvider!.isDotnetVersionSupported(fullySpecifiedDotnetVersion, 'sdk')))
         {
-            throw new EventBasedError('UnsupportedDistro', `The distro ${this.distro?.distro} ${this.distro?.version} does not officially support dotnet ${mode} version ${fullySpecifiedDotnetVersion}.`);
+            throw new EventBasedError('UnsupportedDistro', `The distro ${this.distro?.distro} ${this.distro?.version} does not officially support dotnet version ${fullySpecifiedDotnetVersion}.`);
         }
 
         // Verify there are no conflicting installs
         // Check existing installs ...
-        const supportStatus = await this.distroSDKProvider!.getDotnetVersionSupportStatus(fullySpecifiedDotnetVersion, mode);
+        const supportStatus = await this.distroSDKProvider!.getDotnetVersionSupportStatus(fullySpecifiedDotnetVersion, 'sdk');
         await this.VerifyNoConflictInstallTypeExists(supportStatus, fullySpecifiedDotnetVersion);
 
-        const existingInstall = await this.distroSDKProvider!.getInstalledGlobalDotnetPathIfExists(mode);
+        const existingInstall = await this.distroSDKProvider!.getInstalledGlobalDotnetPathIfExists('sdk');
         // Check for a custom install
         await this.VerifyNoCustomInstallExists(supportStatus, fullySpecifiedDotnetVersion, existingInstall);
 
         // Check if we need to install or not, if we can install (if the version conflicts with an existing one), or if we can just update the existing install.
-        const updateOrRejectState = await this.UpdateOrRejectIfVersionRequestDoesNotRequireInstall(fullySpecifiedDotnetVersion, existingInstall, mode);
+        const updateOrRejectState = await this.UpdateOrRejectIfVersionRequestDoesNotRequireInstall(fullySpecifiedDotnetVersion, existingInstall);
         if (updateOrRejectState === '0')
         {
-            return (await this.distroSDKProvider!.installDotnet(fullySpecifiedDotnetVersion, mode)) === '0' ? '0' : '1';
+            return await this.distroSDKProvider!.installDotnet(fullySpecifiedDotnetVersion, 'sdk') ? '0' : '1';
         }
         else if (updateOrRejectState === String(this.okUpdateExitCode) || updateOrRejectState === String(this.okAlreadyExistsExitCode))
         {
@@ -350,14 +333,8 @@ If you experience issues, please reach out on https://github.com/dotnet/vscode-d
     // @remarks It is expected you are holding the global modifier lock when calling this function.
     public async UninstallSDK(fullySpecifiedDotnetVersion: string): Promise<string>
     {
-        return this.Uninstall(fullySpecifiedDotnetVersion, 'sdk');
-    }
-
-    // @remarks It is expected you are holding the global modifier lock when calling this function.
-    public async Uninstall(fullySpecifiedDotnetVersion: string, mode: 'sdk' | 'runtime' | 'aspnetcore'): Promise<string>
-    {
         await this.Initialize();
-        return this.distroSDKProvider!.uninstallDotnet(fullySpecifiedDotnetVersion, mode);
+        return this.distroSDKProvider!.uninstallDotnet(fullySpecifiedDotnetVersion, 'sdk');
     }
 
     /**
