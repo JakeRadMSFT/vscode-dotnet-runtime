@@ -558,7 +558,6 @@ ${JSON.stringify(result) ?? 'undefined'}`);
         sampleSDKDotnetUninstallAllRegistration,
         sampleSDKShowAcquisitionLogRegistration,
         sampleForceUpdateRegistration,
-        sampleGlobalSDKFromRuntimeRegistration,
         sampleResetUpdateSuccessTime,
         sampleAcquireNoForceRegistration);
 }
