@@ -315,6 +315,7 @@ export function activate(vsCodeContext: vscode.ExtensionContext, extensionContex
     const acquireGlobal = async (commandContext: IDotnetAcquireContext, mode: DotnetInstallMode, commandKey: string): Promise<IDotnetAcquireResult | undefined> =>
     {
         commandContext.mode = mode;
+        commandContext.installType = 'global';
 
         if (commandContext.requestingExtensionId === undefined)
         {

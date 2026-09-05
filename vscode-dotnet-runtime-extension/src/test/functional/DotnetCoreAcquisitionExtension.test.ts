@@ -585,7 +585,7 @@ suite('DotnetCoreAcquisitionExtension End to End', function ()
     async function runGlobalRuntimeInstallTest(mode: 'runtime' | 'aspnetcore')
     {
         const version = '10.0.1';
-        const context: IDotnetAcquireContext = { version, requestingExtensionId, installType: 'global', mode };
+        const context: IDotnetAcquireContext = { version, requestingExtensionId, installType: mode === 'aspnetcore' ? 'local' : undefined, mode };
         const originalPath = process.env.PATH;
         let result: IDotnetAcquireResult | undefined;
         let error: unknown;
@@ -614,6 +614,7 @@ suite('DotnetCoreAcquisitionExtension End to End', function ()
 
         assert.exists(result, `The global ${mode} acquisition command returned a result`);
         assert.equal(result!.dotnetPath, path.join('fake-sdk', getDotnetExecutable()));
+        assert.equal(context.installType, 'global', `Global ${mode} acquisition should normalize the install type`);
         assert.equal(pathAfterInstall, originalPath, `Global ${mode} acquisition should not update PATH`);
     }
 
